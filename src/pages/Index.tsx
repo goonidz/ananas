@@ -757,37 +757,109 @@ const Index = () => {
                   </div>
                 </Card>
 
-                <Card className="p-6">
-                  <h2 className="text-lg font-semibold mb-4">2. Configurer les scènes</h2>
-                  <div className="space-y-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setSceneSettingsOpen(true)}
-                      className="w-full"
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      Paramètres de scènes
-                    </Button>
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Configuration des scènes */}
+                  <Card className="p-6">
+                    <h2 className="text-lg font-semibold mb-4">2. Configurer les scènes</h2>
+                    <div className="space-y-4">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Durée 0-1min:</span>
+                          <span className="font-medium">{sceneDuration0to1}s</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Durée 1-3min:</span>
+                          <span className="font-medium">{sceneDuration1to3}s</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Durée 3min+:</span>
+                          <span className="font-medium">{sceneDuration3plus}s</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t">
+                          <span className="text-muted-foreground">Exemples de prompts:</span>
+                          <span className="font-medium">{examplePrompts.filter(p => p.trim()).length}/3</span>
+                        </div>
+                      </div>
 
-                    <Button
-                      onClick={handleGenerateScenes}
-                      disabled={!transcriptFile || isGeneratingScenes}
-                      className="w-full"
-                    >
-                      {isGeneratingScenes ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Génération des scènes...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Générer les scènes
-                        </>
+                      <Button
+                        variant="outline"
+                        onClick={() => setSceneSettingsOpen(true)}
+                        className="w-full"
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Modifier les paramètres
+                      </Button>
+
+                      <Button
+                        onClick={handleGenerateScenes}
+                        disabled={!transcriptFile || isGeneratingScenes}
+                        className="w-full"
+                      >
+                        {isGeneratingScenes ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Génération des scènes...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Générer les scènes
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </Card>
+
+                  {/* Configuration des images */}
+                  <Card className="p-6">
+                    <h2 className="text-lg font-semibold mb-4">3. Configurer les images</h2>
+                    <div className="space-y-4">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Résolution:</span>
+                          <span className="font-medium">{imageWidth}x{imageHeight}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Format:</span>
+                          <span className="font-medium">{aspectRatio === "custom" ? "Personnalisé" : aspectRatio}</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t">
+                          <span className="text-muted-foreground">Référence de style:</span>
+                          <span className="font-medium">{styleReferenceUrl ? "✓ Définie" : "Non définie"}</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => setImageSettingsOpen(true)}
+                        className="w-full"
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Modifier les paramètres
+                      </Button>
+
+                      {generatedPrompts.length > 0 && (
+                        <Button
+                          onClick={() => setConfirmGenerateImages(true)}
+                          disabled={isGeneratingImages}
+                          className="w-full"
+                        >
+                          {isGeneratingImages ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Génération...
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="mr-2 h-4 w-4" />
+                              Générer toutes les images
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                  </div>
-                </Card>
+                    </div>
+                  </Card>
+                </div>
 
                 {scenes.length > 0 && (
                   <Card className="p-6">
@@ -846,43 +918,6 @@ const Index = () => {
                         </div>
                       </div>
 
-                      {generatedPrompts.length > 0 && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSceneSettingsOpen(true)}
-                          >
-                            <Settings className="mr-2 h-4 w-4" />
-                            Paramètres de scènes
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setImageSettingsOpen(true)}
-                          >
-                            <Settings className="mr-2 h-4 w-4" />
-                            Paramètres d'image
-                          </Button>
-                          <Button
-                            onClick={() => setConfirmGenerateImages(true)}
-                            disabled={isGeneratingImages}
-                            className="flex-1"
-                          >
-                            {isGeneratingImages ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Génération des images...
-                              </>
-                            ) : (
-                              <>
-                                <ImageIcon className="mr-2 h-4 w-4" />
-                                Générer toutes les images ({imageWidth}x{imageHeight})
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      )}
                     </div>
                     <div className="overflow-x-auto">
                       <Table>
