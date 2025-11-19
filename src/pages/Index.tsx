@@ -5,6 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -80,6 +90,8 @@ const Index = () => {
   const [uploadedStyleImageUrl, setUploadedStyleImageUrl] = useState<string>("");
   const [isUploadingStyleImage, setIsUploadingStyleImage] = useState(false);
   const [regeneratingPromptIndex, setRegeneratingPromptIndex] = useState<number | null>(null);
+  const [confirmRegeneratePrompt, setConfirmRegeneratePrompt] = useState<number | null>(null);
+  const [confirmRegenerateImage, setConfirmRegenerateImage] = useState<number | null>(null);
 
   // Check authentication
   useEffect(() => {
@@ -676,7 +688,6 @@ const Index = () => {
                   Mes projets
                 </Link>
               </Button>
-              <span className="text-sm text-muted-foreground">{user.email}</span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Déconnexion
@@ -1033,7 +1044,7 @@ const Index = () => {
                                         variant="ghost"
                                         size="sm"
                                         className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => regenerateSinglePrompt(index)}
+                                        onClick={() => setConfirmRegeneratePrompt(index)}
                                         disabled={regeneratingPromptIndex === index}
                                         title="Régénérer le prompt"
                                       >
@@ -1064,7 +1075,7 @@ const Index = () => {
                                         variant="ghost"
                                         size="sm"
                                         className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-background"
-                                        onClick={() => generateImage(index)}
+                                        onClick={() => setConfirmRegenerateImage(index)}
                                         disabled={generatingImageIndex === index}
                                         title="Régénérer l'image"
                                       >
@@ -1123,6 +1134,51 @@ const Index = () => {
               </div>
           )}
         </div>
+
+        {/* Confirmation dialogs */}
+        <AlertDialog open={confirmRegeneratePrompt !== null} onOpenChange={(open) => !open && setConfirmRegeneratePrompt(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Régénérer le prompt ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action va régénérer le prompt de la scène {confirmRegeneratePrompt !== null ? confirmRegeneratePrompt + 1 : ''}. Le prompt actuel sera remplacé.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={() => {
+                if (confirmRegeneratePrompt !== null) {
+                  regenerateSinglePrompt(confirmRegeneratePrompt);
+                  setConfirmRegeneratePrompt(null);
+                }
+              }}>
+                Régénérer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={confirmRegenerateImage !== null} onOpenChange={(open) => !open && setConfirmRegenerateImage(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Régénérer l'image ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action va régénérer l'image de la scène {confirmRegenerateImage !== null ? confirmRegenerateImage + 1 : ''}. L'image actuelle sera remplacée.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={() => {
+                if (confirmRegenerateImage !== null) {
+                  generateImage(confirmRegenerateImage);
+                  setConfirmRegenerateImage(null);
+                }
+              }}>
+                Régénérer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
   );
 };
