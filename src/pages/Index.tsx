@@ -253,7 +253,7 @@ const Index = () => {
     }
   };
 
-  const handleGeneratePrompts = async () => {
+  const handleGeneratePrompts = async (testMode: boolean = false) => {
     if (scenes.length === 0) {
       toast.error("Veuillez d'abord générer les scènes");
       return;
@@ -262,6 +262,15 @@ const Index = () => {
     if (!currentProjectId) {
       toast.error("Veuillez d'abord sélectionner ou créer un projet");
       return;
+    }
+
+    const scenesToProcess = testMode ? scenes.slice(0, 15) : scenes;
+    const sceneCount = scenesToProcess.length;
+
+    if (testMode && scenes.length < 15) {
+      toast.info(`Mode test : génération des ${scenes.length} scènes disponibles`);
+    } else if (testMode) {
+      toast.info(`Mode test : génération des 15 premières scènes sur ${scenes.length}`);
     }
 
     setIsGeneratingPrompts(true);
@@ -288,8 +297,9 @@ const Index = () => {
 
       const prompts: GeneratedPrompt[] = [];
 
-      for (let i = 0; i < scenes.length; i++) {
-        const scene = scenes[i];
+      for (let i = 0; i < sceneCount; i++) {
+        const scene = scenesToProcess[i];
+        const originalIndex = testMode ? i : scenes.indexOf(scene);
         
         try {
           const { data, error } = await supabase.functions.invoke("generate-prompts", {
@@ -297,7 +307,7 @@ const Index = () => {
               scene: scene.text,
               summary,
               examplePrompt,
-              sceneIndex: i + 1,
+              sceneIndex: originalIndex + 1,
               totalScenes: scenes.length,
               startTime: scene.startTime,
               endTime: scene.endTime
@@ -307,7 +317,7 @@ const Index = () => {
           if (error) throw error;
 
           prompts.push({
-            scene: `Scène ${i + 1} (${formatTimecode(scene.startTime)} - ${formatTimecode(scene.endTime)})`,
+            scene: `Scène ${originalIndex + 1} (${formatTimecode(scene.startTime)} - ${formatTimecode(scene.endTime)})`,
             prompt: data.prompt,
             text: scene.text,
             startTime: scene.startTime,
@@ -318,9 +328,9 @@ const Index = () => {
           setGeneratedPrompts([...prompts]);
           
         } catch (sceneError: any) {
-          console.error(`Error generating prompt for scene ${i + 1}:`, sceneError);
+          console.error(`Error generating prompt for scene ${originalIndex + 1}:`, sceneError);
           prompts.push({
-            scene: `Scène ${i + 1} (${formatTimecode(scene.startTime)} - ${formatTimecode(scene.endTime)})`,
+            scene: `Scène ${originalIndex + 1} (${formatTimecode(scene.startTime)} - ${formatTimecode(scene.endTime)})`,
             prompt: "Erreur lors de la génération",
             text: scene.text,
             startTime: scene.startTime,
@@ -332,7 +342,7 @@ const Index = () => {
         }
       }
 
-      toast.success("Tous les prompts ont été générés avec succès !");
+      toast.success(`${sceneCount} prompts générés avec succès !`);
     } catch (error: any) {
       console.error("Error generating prompts:", error);
       toast.error(error.message || "Erreur lors de la génération des prompts");
@@ -504,22 +514,42 @@ const Index = () => {
                       <h2 className="text-lg font-semibold">
                         Scènes générées ({scenes.length})
                       </h2>
-                      <Button
-                        onClick={handleGeneratePrompts}
-                        disabled={isGeneratingPrompts}
-                      >
-                        {isGeneratingPrompts ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Génération...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Générer les prompts
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleGeneratePrompts(true)}
+                          disabled={isGeneratingPrompts}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {isGeneratingPrompts ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Test...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              Tester (15 premières)
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => handleGeneratePrompts(false)}
+                          disabled={isGeneratingPrompts}
+                        >
+                          {isGeneratingPrompts ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Génération...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              Générer tous les prompts
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {scenes.map((scene, index) => (
