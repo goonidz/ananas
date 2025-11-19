@@ -90,6 +90,7 @@ const Index = () => {
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [generatingImageIndex, setGeneratingImageIndex] = useState<number | null>(null);
+  const [generatingPromptIndex, setGeneratingPromptIndex] = useState<number | null>(null);
   const [styleReferenceUrl, setStyleReferenceUrl] = useState<string>("");
   const [uploadedStyleImageUrl, setUploadedStyleImageUrl] = useState<string>("");
   const [isUploadingStyleImage, setIsUploadingStyleImage] = useState(false);
@@ -500,9 +501,90 @@ const Index = () => {
       toast.success("Prompt régénéré !");
     } catch (error: any) {
       console.error("Error regenerating prompt:", error);
-      toast.error(error.message || "Erreur lors de la régénération");
+      toast.error(error.message || "Erreur lors de la régénération du prompt");
     } finally {
       setRegeneratingPromptIndex(null);
+    }
+  };
+
+  const generateSinglePrompt = async (sceneIndex: number) => {
+    if (!currentProjectId) {
+      toast.error("Veuillez d'abord sélectionner ou créer un projet");
+      return;
+    }
+
+    setGeneratingPromptIndex(sceneIndex);
+    
+    try {
+      // Get the project to retrieve the summary
+      const { data: projectData, error: projectError } = await supabase
+        .from("projects")
+        .select("summary")
+        .eq("id", currentProjectId)
+        .single();
+
+      if (projectError) throw projectError;
+
+      let summary = projectData?.summary;
+
+      // If no summary exists, generate one
+      if (!summary) {
+        const fullTranscript = transcriptData?.segments.map(seg => seg.text).join(' ') || '';
+        const { data: summaryData, error: summaryError } = await supabase.functions.invoke('generate-summary', {
+          body: { transcript: fullTranscript }
+        });
+
+        if (summaryError) throw summaryError;
+        
+        summary = summaryData.summary;
+        
+        // Save the summary for future use
+        await supabase
+          .from("projects")
+          .update({ summary })
+          .eq("id", currentProjectId);
+      }
+
+      const scene = scenes[sceneIndex];
+      const filteredPrompts = examplePrompts.filter(p => p.trim() !== "");
+
+      const { data, error } = await supabase.functions.invoke("generate-prompts", {
+        body: { 
+          scene: scene.text,
+          summary,
+          examplePrompts: filteredPrompts,
+          sceneIndex: sceneIndex + 1,
+          totalScenes: scenes.length,
+          startTime: scene.startTime,
+          endTime: scene.endTime
+        },
+      });
+
+      if (error) throw error;
+
+      // Create new prompt object
+      const newPrompt: GeneratedPrompt = {
+        scene: `Scène ${sceneIndex + 1} (${formatTimecode(scene.startTime)} - ${formatTimecode(scene.endTime)})`,
+        prompt: data.prompt,
+        text: scene.text,
+        startTime: scene.startTime,
+        endTime: scene.endTime,
+        duration: scene.endTime - scene.startTime
+      };
+
+      // Insert the prompt at the correct index
+      setGeneratedPrompts(prev => {
+        const updatedPrompts = [...prev];
+        updatedPrompts[sceneIndex] = newPrompt;
+        return updatedPrompts;
+      });
+
+      toast.success("Prompt généré !");
+    } catch (error: any) {
+      console.error("Error generating prompt:", error);
+      toast.error(error.message || "Erreur lors de la génération du prompt");
+    } finally {
+      setGeneratingPromptIndex(null);
     }
   };
 
@@ -1019,9 +1101,25 @@ const Index = () => {
                                       </Button>
                                     </div>
                                   ) : (
-                                    <span className="text-xs text-muted-foreground italic">
-                                      Pas encore généré
-                                    </span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => generateSinglePrompt(index)}
+                                      disabled={generatingPromptIndex === index}
+                                      title="Générer le prompt de cette scène"
+                                    >
+                                      {generatingPromptIndex === index ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                          <span className="text-xs">Génération...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Sparkles className="h-4 w-4 mr-1" />
+                                          <span className="text-xs">Générer</span>
+                                        </>
+                                      )}
+                                    </Button>
                                   )}
                                 </TableCell>
                                 <TableCell>
