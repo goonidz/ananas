@@ -33,10 +33,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Sparkles, Copy, Check, Upload, LogOut, FolderOpen, Image as ImageIcon, RefreshCw, Settings } from "lucide-react";
+import { Loader2, Sparkles, Copy, Check, Upload, LogOut, FolderOpen, Image as ImageIcon, RefreshCw, Settings, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { 
+  generatePremiereXML, 
+  generateEDL, 
+  generateCSV, 
+  downloadFile, 
+  downloadImagesAsZip,
+  type ExportFormat,
+  type ExportMode
+} from "@/lib/videoExportHelpers";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface TranscriptSegment {
   text: string;
@@ -102,6 +113,10 @@ const Index = () => {
   const [sceneSettingsOpen, setSceneSettingsOpen] = useState(false);
   const [promptSettingsOpen, setPromptSettingsOpen] = useState(false);
   const [confirmGenerateImages, setConfirmGenerateImages] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("premiere-xml");
+  const [exportMode, setExportMode] = useState<ExportMode>("with-images");
+  const [isExporting, setIsExporting] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -773,6 +788,69 @@ const Index = () => {
     }
   };
 
+  const handleExport = async () => {
+    if (generatedPrompts.length === 0) {
+      toast.error("Aucune donnée à exporter");
+      return;
+    }
+
+    // Check if images are required but missing
+    if (exportMode === "with-images") {
+      const missingImages = generatedPrompts.filter(p => !p.imageUrl);
+      if (missingImages.length > 0) {
+        toast.error(`${missingImages.length} scène(s) n'ont pas d'images. Veuillez générer toutes les images d'abord.`);
+        return;
+      }
+    }
+
+    setIsExporting(true);
+
+    try {
+      const options = {
+        format: exportFormat,
+        mode: exportMode,
+        projectName: projectName || "projet_sans_nom",
+        framerate: 25,
+        width: imageWidth,
+        height: imageHeight
+      };
+
+      let content: string;
+      let filename: string;
+      
+      switch (exportFormat) {
+        case "premiere-xml":
+          content = generatePremiereXML(generatedPrompts, options);
+          filename = `${projectName || "export"}_premiere.xml`;
+          break;
+        case "edl":
+          content = generateEDL(generatedPrompts, options);
+          filename = `${projectName || "export"}.edl`;
+          break;
+        case "csv":
+          content = generateCSV(generatedPrompts, options);
+          filename = `${projectName || "export"}.csv`;
+          break;
+      }
+
+      if (exportMode === "with-images") {
+        toast.info("Préparation du ZIP avec les images...");
+        await downloadImagesAsZip(generatedPrompts, content, filename);
+        toast.success("Export ZIP téléchargé avec succès !");
+      } else {
+        await downloadFile(content, filename);
+        toast.success("Export téléchargé avec succès !");
+      }
+
+      setExportDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error exporting:", error);
+      toast.error(error.message || "Erreur lors de l'export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1000,6 +1078,16 @@ const Index = () => {
                           {generatedPrompts.length > 0 && ` - ${generatedPrompts.length} prompts`}
                         </h2>
                         <div className="flex gap-2 items-center">
+                          {generatedPrompts.length > 0 && generatedPrompts.filter(p => p.imageUrl).length > 0 && (
+                            <Button
+                              onClick={() => setExportDialogOpen(true)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Exporter pour montage
+                            </Button>
+                          )}
                           <Button
                             onClick={() => handleGeneratePrompts(true)}
                             disabled={isGeneratingPrompts}
@@ -1538,6 +1626,108 @@ const Index = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Export Dialog */}
+        <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+          <DialogContent className="max-w-md">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Exporter pour montage vidéo</h2>
+                <p className="text-sm text-muted-foreground">
+                  Exportez vos scènes et images dans un format compatible avec votre logiciel de montage.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Format d'export</Label>
+                  <RadioGroup value={exportFormat} onValueChange={(value) => setExportFormat(value as ExportFormat)}>
+                    <div className="flex items-start space-x-3 space-y-0">
+                      <RadioGroupItem value="premiere-xml" id="format-xml" />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="format-xml" className="cursor-pointer font-medium">
+                          Premiere Pro XML
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Compatible avec Adobe Premiere Pro, Final Cut Pro, DaVinci Resolve
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3 space-y-0">
+                      <RadioGroupItem value="edl" id="format-edl" />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="format-edl" className="cursor-pointer font-medium">
+                          EDL (Edit Decision List)
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Format universel, compatible avec la plupart des logiciels de montage
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3 space-y-0">
+                      <RadioGroupItem value="csv" id="format-csv" />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="format-csv" className="cursor-pointer font-medium">
+                          CSV
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Tableur pour vérification ou import manuel
+                        </p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-3 pt-2 border-t">
+                  <Label className="text-base font-semibold">Mode d'export</Label>
+                  <RadioGroup value={exportMode} onValueChange={(value) => setExportMode(value as ExportMode)}>
+                    <div className="flex items-start space-x-3 space-y-0">
+                      <RadioGroupItem value="with-images" id="mode-zip" />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="mode-zip" className="cursor-pointer font-medium">
+                          ZIP avec images (recommandé)
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Télécharge un ZIP contenant le fichier d'export + toutes les images
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3 space-y-0">
+                      <RadioGroupItem value="urls-only" id="mode-urls" />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="mode-urls" className="cursor-pointer font-medium">
+                          Fichier seul avec URLs
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Plus léger, mais nécessite une connexion internet lors de l'import
+                        </p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+                  Annuler
+                </Button>
+                <Button onClick={handleExport} disabled={isExporting}>
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Export en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      Exporter
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
   );
 };
