@@ -99,6 +99,7 @@ const Index = () => {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageSettingsOpen, setImageSettingsOpen] = useState(false);
   const [sceneSettingsOpen, setSceneSettingsOpen] = useState(false);
+  const [promptSettingsOpen, setPromptSettingsOpen] = useState(false);
   const [confirmGenerateImages, setConfirmGenerateImages] = useState(false);
 
   // Check authentication
@@ -768,27 +769,23 @@ const Index = () => {
                   </div>
                 </Card>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-3 gap-6">
                   {/* Configuration des scènes */}
                   <Card className="p-6">
                     <h2 className="text-lg font-semibold mb-4">2. Configurer les scènes</h2>
                     <div className="space-y-4">
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Durée 0-1min:</span>
+                          <span className="text-muted-foreground">Durée max (0-1 min):</span>
                           <span className="font-medium">{sceneDuration0to1}s</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Durée 1-3min:</span>
+                          <span className="text-muted-foreground">Durée max (1-3 min):</span>
                           <span className="font-medium">{sceneDuration1to3}s</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Durée 3min+:</span>
+                          <span className="text-muted-foreground">Durée max (3+ min):</span>
                           <span className="font-medium">{sceneDuration3plus}s</span>
-                        </div>
-                        <div className="flex justify-between pt-2 border-t">
-                          <span className="text-muted-foreground">Exemples de prompts:</span>
-                          <span className="font-medium">{examplePrompts.filter(p => p.trim()).length}/3</span>
                         </div>
                       </div>
 
@@ -821,9 +818,49 @@ const Index = () => {
                     </div>
                   </Card>
 
+                  {/* Configuration des prompts */}
+                  <Card className="p-6">
+                    <h2 className="text-lg font-semibold mb-4">3. Configurer les prompts</h2>
+                    <div className="space-y-4">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Exemples de prompts:</span>
+                          <span className="font-medium">{examplePrompts.filter(p => p.trim()).length}/3</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => setPromptSettingsOpen(true)}
+                        className="w-full"
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        Modifier les paramètres
+                      </Button>
+
+                      <Button
+                        onClick={() => handleGeneratePrompts()}
+                        disabled={scenes.length === 0 || isGeneratingPrompts}
+                        className="w-full"
+                      >
+                        {isGeneratingPrompts ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Génération des prompts...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Générer les prompts
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </Card>
+
                   {/* Configuration des images */}
                   <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">3. Configurer les images</h2>
+                    <h2 className="text-lg font-semibold mb-4">4. Configurer les images</h2>
                     <div className="space-y-4">
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
@@ -1131,36 +1168,6 @@ const Index = () => {
                 <h3 className="text-lg font-semibold mb-4">Paramètres de scènes</h3>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Exemples de prompts (2-3 recommandés pour la consistance)
-                  </label>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Entrez 2-3 exemples de prompts que vous avez déjà créés pour montrer le style et la structure désirée
-                  </p>
-                </div>
-                
-                {[0, 1, 2].map((index) => (
-                  <div key={index}>
-                    <label className="text-xs text-muted-foreground block mb-1">
-                      Exemple {index + 1} {index === 0 ? "(recommandé)" : "(optionnel)"}
-                    </label>
-                    <Textarea
-                      placeholder={`Ex: "A cinematic scene showing... [your style]"`}
-                      value={examplePrompts[index]}
-                      onChange={(e) => {
-                        const newPrompts = [...examplePrompts];
-                        newPrompts[index] = e.target.value;
-                        setExamplePrompts(newPrompts);
-                      }}
-                      rows={3}
-                      className="resize-none"
-                    />
-                  </div>
-                ))}
-              </div>
-
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
@@ -1202,6 +1209,53 @@ const Index = () => {
 
               <div className="flex justify-end">
                 <Button onClick={() => setSceneSettingsOpen(false)}>
+                  Fermer
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Prompt settings dialog */}
+        <Dialog open={promptSettingsOpen} onOpenChange={setPromptSettingsOpen}>
+          <DialogContent className="max-w-2xl">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Paramètres de prompts</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Exemples de prompts (2-3 recommandés pour la consistance)
+                  </label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Entrez 2-3 exemples de prompts que vous avez déjà créés pour montrer le style et la structure désirée
+                  </p>
+                </div>
+                
+                {[0, 1, 2].map((index) => (
+                  <div key={index}>
+                    <label className="text-xs text-muted-foreground block mb-1">
+                      Exemple {index + 1} {index === 0 ? "(recommandé)" : "(optionnel)"}
+                    </label>
+                    <Textarea
+                      placeholder={`Ex: "A cinematic scene showing... [your style]"`}
+                      value={examplePrompts[index]}
+                      onChange={(e) => {
+                        const newPrompts = [...examplePrompts];
+                        newPrompts[index] = e.target.value;
+                        setExamplePrompts(newPrompts);
+                      }}
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setPromptSettingsOpen(false)}>
                   Fermer
                 </Button>
               </div>
