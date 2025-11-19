@@ -761,38 +761,50 @@ const Index = () => {
       toast.info(`Génération batch ${batchNumber}/${totalBatches} (${batch.length} images)...`);
 
       const batchPromises = batch.map(async ({ prompt, index }) => {
-        try {
-          const requestBody: any = {
-            prompt: prompt.prompt,
-            width: imageWidth,
-            height: imageHeight
-          };
+        // Function to generate single image with retry
+        const generateWithRetry = async (retryCount = 0): Promise<{ success: boolean; index: number }> => {
+          try {
+            const requestBody: any = {
+              prompt: prompt.prompt,
+              width: imageWidth,
+              height: imageHeight
+            };
 
-          // Add style reference if provided
-          if (styleReferenceUrl.trim()) {
-            requestBody.image_urls = [styleReferenceUrl.trim()];
+            // Add style reference if provided
+            if (styleReferenceUrl.trim()) {
+              requestBody.image_urls = [styleReferenceUrl.trim()];
+            }
+
+            const { data, error } = await supabase.functions.invoke('generate-image-seedream', {
+              body: requestBody
+            });
+
+            if (error) throw error;
+
+            const imageUrl = Array.isArray(data.output) ? data.output[0] : data.output;
+            
+            setGeneratedPrompts(prev => {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], imageUrl };
+              return updated;
+            });
+
+            return { success: true, index };
+          } catch (error: any) {
+            // Retry once if it's the first attempt
+            if (retryCount === 0 && error.message?.includes('interrupted')) {
+              console.log(`Retry image ${index + 1} après interruption...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+              return generateWithRetry(1);
+            }
+            
+            console.error(`Error generating image ${index + 1}:`, error);
+            toast.error(`Erreur image ${index + 1}: ${error.message}`);
+            return { success: false, index };
           }
+        };
 
-          const { data, error } = await supabase.functions.invoke('generate-image-seedream', {
-            body: requestBody
-          });
-
-          if (error) throw error;
-
-          const imageUrl = Array.isArray(data.output) ? data.output[0] : data.output;
-          
-          setGeneratedPrompts(prev => {
-            const updated = [...prev];
-            updated[index] = { ...updated[index], imageUrl };
-            return updated;
-          });
-
-          return { success: true, index };
-        } catch (error: any) {
-          console.error(`Error generating image ${index + 1}:`, error);
-          toast.error(`Erreur image ${index + 1}: ${error.message}`);
-          return { success: false, index };
-        }
+        return generateWithRetry();
       });
 
       const results = await Promise.all(batchPromises);
@@ -800,8 +812,14 @@ const Index = () => {
     }
 
     setIsGeneratingImages(false);
+    
+    // Check for missing images
+    const missingCount = generatedPrompts.filter(p => !p.imageUrl).length;
+    
     if (!cancelImageGenerationRef.current) {
-      if (skippedCount > 0) {
+      if (missingCount > 0) {
+        toast.warning(`${successCount} images générées, ${skippedCount} conservées. ${missingCount} image(s) manquante(s).`);
+      } else if (skippedCount > 0) {
         toast.success(`${successCount} images générées, ${skippedCount} conservées !`);
       } else {
         toast.success(`${successCount}/${generatedPrompts.length} images générées !`);
@@ -815,12 +833,15 @@ const Index = () => {
       return;
     }
 
-    // Check if images are required but missing
-    if (exportMode === "with-images") {
-      const missingImages = generatedPrompts.filter(p => !p.imageUrl);
-      if (missingImages.length > 0) {
-        toast.error(`${missingImages.length} scène(s) n'ont pas d'images. Veuillez générer toutes les images d'abord.`);
+    // Check for missing images and show alert
+    const missingImages = generatedPrompts.filter(p => !p.imageUrl);
+    if (missingImages.length > 0) {
+      if (exportMode === "with-images") {
+        toast.error(`${missingImages.length} scène(s) n'ont pas d'images. Impossible d'exporter avec images. Changez le mode d'export ou générez les images manquantes.`);
         return;
+      } else {
+        // Show warning for URL mode too
+        toast.warning(`Attention : ${missingImages.length} scène(s) n'ont pas d'images. L'export contiendra des URLs vides pour ces scènes.`);
       }
     }
 
