@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { Loader2, Settings, Play, Download, Video } from "lucide-react";
+import { Loader2, Settings, Play, Download, Video, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SceneSidebar } from "@/components/SceneSidebar";
 import { SceneEditor } from "@/components/SceneEditor";
 import { TimelineBar } from "@/components/TimelineBar";
 import { VideoPreview } from "@/components/VideoPreview";
 import { SubtitleControls } from "@/components/SubtitleControls";
+import { ThumbnailGenerator } from "@/components/ThumbnailGenerator";
 import { toast } from "sonner";
 import { exportToVideo } from "@/lib/videoExportHelpers";
 
@@ -49,6 +50,7 @@ const Workspace = () => {
   });
   const [isExportingVideo, setIsExportingVideo] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [showThumbnailGenerator, setShowThumbnailGenerator] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -335,6 +337,14 @@ const Workspace = () => {
                 </>
               )}
             </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setShowThumbnailGenerator(!showThumbnailGenerator)}
+            >
+              <ImageIcon className="mr-2 h-4 w-4" />
+              Miniatures YouTube
+            </Button>
             
             <Button variant="outline" size="icon">
               <Settings className="h-4 w-4" />
@@ -375,6 +385,15 @@ const Workspace = () => {
                     subtitleSettings={subtitleSettings}
                     onSubtitleSettingsChange={setSubtitleSettings}
                   />
+                </div>
+              ) : showThumbnailGenerator ? (
+                <div className="p-6">
+                  <div className="max-w-4xl mx-auto">
+                    <ThumbnailGenerator
+                      projectId={currentProjectId || ""}
+                      videoScript={generatedPrompts.map(p => p.text).join(" ")}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="p-6">
