@@ -11,18 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const { videoScript, exampleTitles } = await req.json();
+    const { videoScript } = await req.json();
 
     if (!videoScript) {
       return new Response(
         JSON.stringify({ error: "Le script vidéo est requis" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!exampleTitles || !Array.isArray(exampleTitles) || exampleTitles.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Les exemples de titres sont requis" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -38,7 +31,7 @@ serve(async (req) => {
 
     const systemPrompt = `Tu es un expert en optimisation de titres YouTube pour maximiser le CTR (taux de clic).
 
-Ton rôle est d'ANALYSER les exemples de titres fournis ET les 45 STRUCTURES DE TITRES PROUVÉES ci-dessous pour générer 5 titres OPTIMISÉS.
+Ton rôle est d'utiliser les 45 STRUCTURES DE TITRES PROUVÉES ci-dessous pour générer 5 titres OPTIMISÉS basés sur le script vidéo fourni.
 
 # 45 STRUCTURES DE TITRES YOUTUBE QUI MARCHENT:
 
@@ -123,11 +116,10 @@ RÈGLES STRICTES:
   ]
 }`;
 
-    const examplesList = exampleTitles.map((t, i) => `${i + 1}. ${t}`).join('\n');
-    const userMessage = `EXEMPLES DE TITRES À REPRODUIRE (analyse leur structure et style):\n\n${examplesList}\n\nSCRIPT DE LA VIDÉO:\n${videoScript}\n\nGénère 5 titres YouTube optimisés en REPRODUISANT le style et les patterns des exemples ci-dessus, adaptés au contenu du script.`;
+    const userMessage = `SCRIPT DE LA VIDÉO:\n${videoScript}\n\nGénère 5 titres YouTube optimisés en utilisant les 45 structures de titres prouvées ci-dessus. Les titres doivent être adaptés au contenu du script et maximiser le taux de clic (CTR).`;
 
     console.log("Generating titles with Gemini...");
-    console.log(`Analyzing ${exampleTitles.length} example titles`);
+    console.log("Using 45 proven title structures");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
