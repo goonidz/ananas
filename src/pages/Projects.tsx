@@ -200,7 +200,7 @@ const Projects = () => {
     }
   };
 
-  const generateScenesFromTranscript = (transcript: any, durations: { d1: number, d2: number, d3: number }) => {
+  const generateScenesFromTranscript = (transcript: any, durations: { d1: number, d2: number, d3: number }, r1End: number, r2End: number) => {
     if (!transcript || !transcript.segments || !Array.isArray(transcript.segments)) {
       console.error("Invalid transcript data");
       return [];
@@ -208,44 +208,53 @@ const Projects = () => {
 
     const segments = transcript.segments;
     const scenes: any[] = [];
-    let currentScene: string[] = [];
+    let currentSceneWords: any[] = [];
     let sceneStartTime = 0;
-    let currentDuration = 0;
 
-    segments.forEach((segment: any, index: number) => {
-      const segmentDuration = (segment.end || 0) - (segment.start || 0);
-      currentScene.push(segment.text || "");
-      currentDuration += segmentDuration;
-
-      // Determine target duration based on current duration
-      let targetDuration = durations.d3; // 3+ range
-      if (currentDuration < range1End) {
+    segments.forEach((word: any, index: number) => {
+      currentSceneWords.push(word);
+      
+      const currentEndTime = word.end || 0;
+      const currentDuration = currentEndTime - sceneStartTime;
+      
+      // Determine target duration based on how much time has passed
+      let targetDuration = durations.d1; // Default to first range
+      if (sceneStartTime < r1End) {
         targetDuration = durations.d1;
-      } else if (currentDuration < range2End) {
+      } else if (sceneStartTime < r2End) {
         targetDuration = durations.d2;
+      } else {
+        targetDuration = durations.d3;
       }
 
-      // Create scene if we reached target duration or it's the last segment
-      if (currentDuration >= targetDuration || index === segments.length - 1) {
-        const sceneText = currentScene.join(" ").trim();
+      // Create scene if we reached target duration or it's the last word
+      const isLastWord = index === segments.length - 1;
+      const shouldCreateScene = currentDuration >= targetDuration || isLastWord;
+      
+      if (shouldCreateScene && currentSceneWords.length > 0) {
+        const sceneText = currentSceneWords.map(w => w.text || "").join(" ").trim();
+        const endTime = currentSceneWords[currentSceneWords.length - 1].end || sceneStartTime;
+        
         if (sceneText) {
           scenes.push({
             scene: sceneText,
-            prompt: "", // Will be generated later
+            prompt: "",
             text: sceneText,
             startTime: sceneStartTime,
-            endTime: segment.end || sceneStartTime + currentDuration,
-            duration: currentDuration,
+            endTime: endTime,
+            duration: endTime - sceneStartTime,
           });
         }
         
         // Reset for next scene
-        currentScene = [];
-        sceneStartTime = segment.end || sceneStartTime + currentDuration;
-        currentDuration = 0;
+        if (!isLastWord) {
+          sceneStartTime = endTime;
+          currentSceneWords = [];
+        }
       }
     });
 
+    console.log(`Generated ${scenes.length} scenes from transcript`);
     return scenes;
   };
 
@@ -274,11 +283,16 @@ const Projects = () => {
       toast.info("Génération des scènes en cours...");
 
       // 2. Generate scenes from transcript
-      const generatedScenes = generateScenesFromTranscript(transcriptData, {
-        d1: sceneDuration0to1,
-        d2: sceneDuration1to3,
-        d3: sceneDuration3plus,
-      });
+      const generatedScenes = generateScenesFromTranscript(
+        transcriptData, 
+        {
+          d1: sceneDuration0to1,
+          d2: sceneDuration1to3,
+          d3: sceneDuration3plus,
+        },
+        range1End,
+        range2End
+      );
 
       if (generatedScenes.length === 0) {
         throw new Error("Aucune scène n'a pu être générée");
