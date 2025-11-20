@@ -200,163 +200,36 @@ const Projects = () => {
     }
   };
 
-  const generateScenesFromTranscript = (transcript: any, durations: { d1: number, d2: number, d3: number }, r1End: number, r2End: number) => {
-    if (!transcript || !transcript.segments || !Array.isArray(transcript.segments)) {
-      console.error("Invalid transcript data");
-      return [];
-    }
-
-    const segments = transcript.segments;
-    const scenes: any[] = [];
-    let currentSceneWords: any[] = [];
-    let sceneStartTime = 0;
-
-    segments.forEach((word: any, index: number) => {
-      currentSceneWords.push(word);
-      
-      const currentEndTime = word.end || 0;
-      const currentDuration = currentEndTime - sceneStartTime;
-      
-      // Determine target duration based on how much time has passed
-      let targetDuration = durations.d1; // Default to first range
-      if (sceneStartTime < r1End) {
-        targetDuration = durations.d1;
-      } else if (sceneStartTime < r2End) {
-        targetDuration = durations.d2;
-      } else {
-        targetDuration = durations.d3;
-      }
-
-      // Create scene if we reached target duration or it's the last word
-      const isLastWord = index === segments.length - 1;
-      const shouldCreateScene = currentDuration >= targetDuration || isLastWord;
-      
-      if (shouldCreateScene && currentSceneWords.length > 0) {
-        const sceneText = currentSceneWords.map(w => w.text || "").join(" ").trim();
-        const endTime = currentSceneWords[currentSceneWords.length - 1].end || sceneStartTime;
-        
-        if (sceneText) {
-          scenes.push({
-            scene: sceneText,
-            prompt: "",
-            text: sceneText,
-            startTime: sceneStartTime,
-            endTime: endTime,
-            duration: endTime - sceneStartTime,
-          });
-        }
-        
-        // Reset for next scene
-        if (!isLastWord) {
-          sceneStartTime = endTime;
-          currentSceneWords = [];
-        }
-      }
-    });
-
-    console.log(`Generated ${scenes.length} scenes from transcript`);
-    return scenes;
-  };
-
   const handleFinalizeConfiguration = async () => {
-    if (!currentProjectId || !transcriptData) return;
+    if (!currentProjectId) return;
     
     setIsCreating(true);
     try {
-      // 1. Save configuration to database
-      const { error: configError } = await supabase
+      // Save all configuration to database
+      const { error } = await supabase
         .from("projects")
         .update({
           scene_duration_0to1: sceneDuration0to1,
           scene_duration_1to3: sceneDuration1to3,
           scene_duration_3plus: sceneDuration3plus,
           example_prompts: examplePrompts,
-          image_width: imageWidth,
-          image_height: imageHeight,
-          aspect_ratio: aspectRatio,
           style_reference_url: styleReferenceUrl || null,
         })
         .eq("id", currentProjectId);
 
-      if (configError) throw configError;
+      if (error) throw error;
 
-      toast.info("Génération des scènes en cours...");
-
-      // 2. Generate scenes from transcript
-      const generatedScenes = generateScenesFromTranscript(
-        transcriptData, 
-        {
-          d1: sceneDuration0to1,
-          d2: sceneDuration1to3,
-          d3: sceneDuration3plus,
-        },
-        range1End,
-        range2End
-      );
-
-      if (generatedScenes.length === 0) {
-        throw new Error("Aucune scène n'a pu être générée");
-      }
-
-      // 3. Generate global summary
-      const fullText = transcriptData.segments?.map((s: any) => s.text).join(" ") || "";
-      const summaryResponse = await supabase.functions.invoke("generate-summary", {
-        body: { transcript: fullText },
-      });
-
-      const summary = summaryResponse.data?.summary || "";
-
-      // 4. Generate prompts for each scene in parallel (batches of 10)
-      const batchSize = 10;
-      const scenesWithPrompts = [...generatedScenes];
-      
-      for (let i = 0; i < scenesWithPrompts.length; i += batchSize) {
-        const batch = scenesWithPrompts.slice(i, i + batchSize);
-        const promises = batch.map(async (scene, batchIndex) => {
-          const sceneIndex = i + batchIndex;
-          const response = await supabase.functions.invoke("generate-prompts", {
-            body: {
-              scene: scene.text,
-              summary,
-              examplePrompts: examplePrompts.filter(p => p.trim()),
-              sceneIndex: sceneIndex + 1,
-              totalScenes: scenesWithPrompts.length,
-              startTime: scene.startTime,
-              endTime: scene.endTime,
-            },
-          });
-
-          if (response.data?.prompt) {
-            scenesWithPrompts[sceneIndex].prompt = response.data.prompt;
-          }
-        });
-
-        await Promise.all(promises);
-        toast.info(`Prompts générés: ${Math.min(i + batchSize, scenesWithPrompts.length)}/${scenesWithPrompts.length}`);
-      }
-
-      // 5. Save scenes and summary to database
-      const { error: saveError } = await supabase
-        .from("projects")
-        .update({
-          prompts: scenesWithPrompts,
-          summary,
-        })
-        .eq("id", currentProjectId);
-
-      if (saveError) throw saveError;
-
-      toast.success("Projet créé avec succès !");
+      toast.success("Configuration enregistrée !");
       setIsDialogOpen(false);
       setWorkflowStep("upload");
       setNewProjectName("");
       setTranscriptData(null);
       setCurrentProjectId(null);
       await loadProjects();
-      navigate(`/workspace?project=${currentProjectId}`);
+      navigate(`/?project=${currentProjectId}`);
     } catch (error: any) {
-      console.error("Error finalizing configuration:", error);
-      toast.error(error.message || "Erreur lors de la création du projet");
+      console.error("Error saving configuration:", error);
+      toast.error("Erreur lors de l'enregistrement");
     } finally {
       setIsCreating(false);
     }
@@ -922,7 +795,7 @@ const Projects = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => navigate(`/workspace?project=${project.id}`)}
+                          onClick={() => navigate(`/?project=${project.id}`)}
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           Ouvrir

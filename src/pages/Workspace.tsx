@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { Loader2, Settings, Download, Image as ImageIcon } from "lucide-react";
+import { Loader2, Settings, Play, Download, Video, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SceneSidebar } from "@/components/SceneSidebar";
 import { SceneEditor } from "@/components/SceneEditor";
@@ -10,8 +10,8 @@ import { TimelineBar } from "@/components/TimelineBar";
 import { VideoPreview } from "@/components/VideoPreview";
 import { SubtitleControls } from "@/components/SubtitleControls";
 import { ThumbnailGenerator } from "@/components/ThumbnailGenerator";
-import { ProjectSettingsDialog } from "@/components/ProjectSettingsDialog";
 import { toast } from "sonner";
+import { exportToVideo } from "@/lib/videoExportHelpers";
 
 interface GeneratedPrompt {
   scene: string;
@@ -48,11 +48,9 @@ const Workspace = () => {
     x: 50,
     y: 85
   });
+  const [isExportingVideo, setIsExportingVideo] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [showThumbnailGenerator, setShowThumbnailGenerator] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [imageWidth, setImageWidth] = useState(1920);
-  const [imageHeight, setImageHeight] = useState(1080);
-  const [aspectRatio, setAspectRatio] = useState("16:9");
 
   // Check authentication
   useEffect(() => {
@@ -99,9 +97,6 @@ const Workspace = () => {
       if (data.audio_url) {
         setAudioUrl(data.audio_url);
       }
-      setImageWidth(data.image_width || 1920);
-      setImageHeight(data.image_height || 1080);
-      setAspectRatio(data.aspect_ratio || "16:9");
     } catch (error: any) {
       console.error("Error loading project:", error);
       toast.error("Erreur lors du chargement du projet");
@@ -196,7 +191,16 @@ const Workspace = () => {
     setShowPreview(true);
   };
 
-  const handleExport = async () => {
+  const handlePlayPreview = () => {
+    setShowPreview(true);
+    setAutoPlayPreview(true);
+  };
+
+  const handleExport = () => {
+    navigate(`/?project=${currentProjectId}`);
+  };
+
+  const handleVideoExport = async () => {
     if (!audioUrl) {
       toast.error("Aucun audio trouvé dans le projet");
       return;
@@ -208,42 +212,31 @@ const Workspace = () => {
       return;
     }
 
+    setIsExportingVideo(true);
+    setExportProgress(0);
+
     try {
-      // Import helper functions
-      const { generatePremiereXML, generateSRT, downloadImagesAsZip } = await import("@/lib/videoExportHelpers");
+      toast.info("Génération de la vidéo en cours...");
+      
+      await exportToVideo({
+        scenes: generatedPrompts,
+        audioUrl,
+        subtitleSettings,
+        width: 1920,
+        height: 1080,
+        framerate: 25,
+        onProgress: (progress) => {
+          setExportProgress(progress);
+        }
+      });
 
-      toast.info("Préparation de l'export...");
-
-    // Generate XML
-    const xmlContent = generatePremiereXML(generatedPrompts, {
-      format: "premiere-xml",
-      mode: "with-images",
-      projectName: projectName || "project",
-      framerate: 25,
-      width: imageWidth,
-      height: imageHeight,
-      audioUrl,
-    });
-
-      // Generate SRT
-      const srtContent = generateSRT(generatedPrompts);
-
-      // Download as ZIP with images
-      await downloadImagesAsZip(
-        generatedPrompts,
-        xmlContent,
-        `${projectName || "project"}_export.xml`,
-        audioUrl
-      );
-
-      // Also download SRT separately
-      const { downloadFile } = await import("@/lib/videoExportHelpers");
-      await downloadFile(srtContent, `${projectName || "project"}_subtitles.srt`);
-
-      toast.success("Export terminé !");
+      toast.success("Vidéo exportée avec succès !");
     } catch (error: any) {
-      console.error("Export error:", error);
-      toast.error("Erreur lors de l'export: " + error.message);
+      console.error("Video export error:", error);
+      toast.error("Erreur lors de l'export vidéo: " + error.message);
+    } finally {
+      setIsExportingVideo(false);
+      setExportProgress(0);
     }
   };
 
@@ -297,6 +290,28 @@ const Workspace = () => {
                 Video duration: {generatedPrompts.reduce((acc, p) => acc + p.duration, 0).toFixed(1)}s
               </span>
             </div>
+
+            {canShowPreview && (
+              <>
+                <Button
+                  onClick={handlePlayPreview}
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  Play
+                </Button>
+                {showPreview && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowPreview(false);
+                      setAutoPlayPreview(false);
+                    }}
+                  >
+                    Fermer la preview
+                  </Button>
+                )}
+              </>
+            )}
             
             <Button
               variant="outline"
@@ -304,6 +319,23 @@ const Workspace = () => {
             >
               <Download className="mr-2 h-4 w-4" />
               Export XML
+            </Button>
+
+            <Button
+              onClick={handleVideoExport}
+              disabled={isExportingVideo || !canShowPreview}
+            >
+              {isExportingVideo ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {exportProgress > 0 ? `${Math.round(exportProgress)}%` : "Export..."}
+                </>
+              ) : (
+                <>
+                  <Video className="mr-2 h-4 w-4" />
+                  Export Vidéo
+                </>
+              )}
             </Button>
 
             <Button
@@ -320,24 +352,12 @@ const Workspace = () => {
               Miniatures YouTube
             </Button>
             
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowSettings(true)}
-            >
+            <Button variant="outline" size="icon">
               <Settings className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
-
-      {/* Project Settings Dialog */}
-      <ProjectSettingsDialog
-        open={showSettings}
-        onOpenChange={setShowSettings}
-        projectId={currentProjectId || ""}
-        onSave={() => loadProjectData(currentProjectId || "")}
-      />
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
