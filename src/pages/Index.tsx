@@ -990,6 +990,149 @@ const Index = () => {
     }
   };
 
+  const handleTestFirstTwo = async () => {
+    if (scenes.length === 0) {
+      toast.error("Veuillez d'abord générer les scènes");
+      return;
+    }
+
+    if (!currentProjectId) {
+      toast.error("Veuillez d'abord sélectionner ou créer un projet");
+      return;
+    }
+
+    const scenesToTest = scenes.slice(0, 2);
+    const sceneCount = Math.min(scenes.length, 2);
+
+    if (scenes.length < 2) {
+      toast.info(`Mode test : génération de la ${scenes.length} scène disponible`);
+    } else {
+      toast.info(`Mode test : génération des 2 premières scènes`);
+    }
+
+    setIsGeneratingPrompts(true);
+    setGeneratedPrompts([]);
+    cancelGenerationRef.current = false;
+
+    try {
+      // Step 1: Generate summary
+      toast.info("Génération du résumé global...");
+      const fullTranscript = transcriptData?.segments.map(seg => seg.text).join(' ') || '';
+      
+      const { data: summaryData, error: summaryError } = await supabase.functions.invoke('generate-summary', {
+        body: { transcript: fullTranscript }
+      });
+
+      if (summaryError) throw summaryError;
+      
+      const summary = summaryData.summary;
+      await supabase
+        .from("projects")
+        .update({ summary })
+        .eq("id", currentProjectId);
+
+      // Step 2: Generate prompts for first 2 scenes
+      const prompts: GeneratedPrompt[] = [];
+      const filteredPrompts = examplePrompts.filter(p => p.trim() !== "");
+      
+      toast.info(`Génération des prompts pour ${sceneCount} scènes...`);
+
+      for (let i = 0; i < sceneCount; i++) {
+        const scene = scenesToTest[i];
+        try {
+          const { data, error } = await supabase.functions.invoke("generate-prompts", {
+            body: { 
+              scene: scene.text,
+              summary,
+              examplePrompts: filteredPrompts,
+              sceneIndex: i + 1,
+              totalScenes: scenes.length,
+              startTime: scene.startTime,
+              endTime: scene.endTime
+            },
+          });
+
+          if (error) throw error;
+
+          prompts.push({
+            scene: `Scène ${i + 1} (${formatTimecode(scene.startTime)} - ${formatTimecode(scene.endTime)})`,
+            prompt: data.prompt,
+            text: scene.text,
+            startTime: scene.startTime,
+            endTime: scene.endTime,
+            duration: scene.endTime - scene.startTime
+          });
+        } catch (sceneError: any) {
+          console.error(`Error generating prompt for scene ${i + 1}:`, sceneError);
+          prompts.push({
+            scene: `Scène ${i + 1} (${formatTimecode(scene.startTime)} - ${formatTimecode(scene.endTime)})`,
+            prompt: "Erreur lors de la génération",
+            text: scene.text,
+            startTime: scene.startTime,
+            endTime: scene.endTime,
+            duration: scene.endTime - scene.startTime
+          });
+        }
+      }
+
+      setGeneratedPrompts(prompts);
+      toast.success(`${sceneCount} prompts générés !`);
+      
+      setIsGeneratingPrompts(false);
+
+      // Step 3: Generate images for these 2 scenes
+      toast.info("Génération des images...");
+      setIsGeneratingImages(true);
+
+      for (let i = 0; i < prompts.length; i++) {
+        const prompt = prompts[i];
+        if (!prompt.prompt || prompt.prompt === "Erreur lors de la génération") continue;
+
+        setGeneratingImageIndex(i);
+        try {
+          const requestBody: any = {
+            prompt: prompt.prompt,
+            width: imageWidth,
+            height: imageHeight
+          };
+
+          if (styleReferenceUrl.trim()) {
+            requestBody.image_urls = [styleReferenceUrl.trim()];
+          }
+
+          const { data, error } = await supabase.functions.invoke('generate-image-seedream', {
+            body: requestBody
+          });
+
+          if (error) throw error;
+
+          const replicateUrl = Array.isArray(data.output) ? data.output[0] : data.output;
+          const permanentUrl = await saveImageToStorage(replicateUrl, i);
+          
+          setGeneratedPrompts(prev => {
+            const updatedPrompts = [...prev];
+            updatedPrompts[i] = { ...updatedPrompts[i], imageUrl: permanentUrl };
+            return updatedPrompts;
+          });
+          
+          toast.success(`Image ${i + 1} générée !`);
+        } catch (error: any) {
+          console.error(`Error generating image ${i + 1}:`, error);
+          toast.error(`Erreur image ${i + 1}: ${error.message}`);
+        }
+      }
+
+      setGeneratingImageIndex(null);
+      setIsGeneratingImages(false);
+      toast.success("Test terminé ! 2 scènes avec prompts et images générés.");
+    } catch (error: any) {
+      console.error("Error in test:", error);
+      toast.error(error.message || "Erreur lors du test");
+      setIsGeneratingPrompts(false);
+      setIsGeneratingImages(false);
+    }
+  };
+
   const generateAllImages = async (skipExisting: boolean = false) => {
     if (generatedPrompts.length === 0) {
       toast.error("Veuillez d'abord générer les prompts");
@@ -1378,6 +1521,17 @@ const Index = () => {
                   onLoadPreset={handleLoadPreset}
                 />
 
+                {activePresetName && (
+                  <Card className="p-3 bg-primary/10 border-primary/30 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">
+                        Preset actif : <span className="text-primary">{activePresetName}</span>
+                      </span>
+                    </div>
+                  </Card>
+                )}
+
                 <div className="grid grid-cols-3 gap-6">
                   {/* Configuration des scènes */}
                   <Card className="p-4 bg-muted/30 border-primary/20">
@@ -1492,6 +1646,24 @@ const Index = () => {
                               )}
                             </>
                           )}
+                          <Button
+                            onClick={handleTestFirstTwo}
+                            disabled={isGeneratingPrompts || isGeneratingImages}
+                            variant="default"
+                            size="sm"
+                          >
+                            {isGeneratingPrompts || isGeneratingImages ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Test en cours...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Tester (2 premières)
+                              </>
+                            )}
+                          </Button>
                           <Button
                             onClick={() => handleGeneratePrompts(true)}
                             disabled={isGeneratingPrompts}
