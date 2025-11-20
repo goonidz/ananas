@@ -38,7 +38,7 @@ export function generatePremiereXML(
   const { projectName, framerate = 25, width = 1920, height = 1080, mode } = options;
   
   const clipItems = prompts.map((prompt, index) => {
-    // First image always starts at frame 0, others use their actual timecode
+    // First image always starts at frame 0, others use leur timecode réel
     const startFrame = index === 0 ? 0 : Math.round(prompt.startTime * framerate);
     
     // For end frame: extend to the start of next scene, or use scene's end if last
@@ -49,9 +49,8 @@ export function generatePremiereXML(
     
     const duration = endFrame - startFrame;
     
-    const imagePath = mode === "with-images" 
-      ? `clip_${(index + 1).toString().padStart(3, '0')}_img.jpg`
-      : prompt.imageUrl || "";
+    const filename = `clip_${(index + 1).toString().padStart(3, '0')}_img.jpg`;
+    const imagePath = `images/${filename}`;
     
     return `      <clipitem id="clipitem-${index + 1}">
         <name>Scene ${index + 1}</name>
@@ -64,7 +63,7 @@ export function generatePremiereXML(
         <in>0</in>
         <out>${duration}</out>
         <file id="file-${index + 1}">
-          <name>clip_${(index + 1).toString().padStart(3, '0')}_img.jpg</name>
+          <name>${filename}</name>
           <pathurl>${imagePath}</pathurl>
           <duration>${duration}</duration>
           <width>${width}</width>
@@ -137,7 +136,7 @@ export function generateEDL(
     const recordOut = formatTimecode(prompt.endTime, framerate);
     
     const imagePath = mode === "with-images"
-      ? `clip_${clipNumber}_img.jpg`
+      ? `images/clip_${clipNumber}_img.jpg`
       : prompt.imageUrl || "";
     
     edl += `${clipNumber}  AX       V     C        ${sourceIn} ${sourceOut} ${recordIn} ${recordOut}\n`;
@@ -166,7 +165,7 @@ export function generateCSV(
     const duration = prompt.duration.toFixed(2);
     
     const imagePath = mode === "with-images"
-      ? `clip_${sceneNum.toString().padStart(3, '0')}_img.jpg`
+      ? `images/clip_${sceneNum.toString().padStart(3, '0')}_img.jpg`
       : prompt.imageUrl || "";
     
     csv += `${sceneNum},"${timecodeIn}","${timecodeOut}",${duration},"${imagePath}","${escapeCsv(prompt.text)}","${escapeCsv(prompt.prompt)}"\n`;
@@ -253,7 +252,10 @@ export async function downloadImagesAsZip(
   // Add the export file
   zip.file(exportFilename, exportContent);
   
-  // Download and add each image at root level (not in subfolder), converting to JPEG
+  // Create images folder
+  const imagesFolder = zip.folder('images');
+  
+  // Download and add each image into images/ subfolder, converting to JPEG
   for (let i = 0; i < prompts.length; i++) {
     const prompt = prompts[i];
     if (prompt.imageUrl) {
@@ -265,7 +267,7 @@ export async function downloadImagesAsZip(
         const jpegBlob = await convertToJpeg(blob);
         
         const filename = `clip_${(i + 1).toString().padStart(3, '0')}_img.jpg`;
-        zip.file(filename, jpegBlob);
+        imagesFolder?.file(filename, jpegBlob);
       } catch (error) {
         console.error(`Failed to download image ${i + 1}:`, error);
       }
