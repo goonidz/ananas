@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { Loader2, Settings, Download, Video, Image as ImageIcon } from "lucide-react";
+import { Loader2, Settings, Download, Video, Image as ImageIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SceneSidebar } from "@/components/SceneSidebar";
@@ -305,12 +305,15 @@ const Workspace = () => {
       <div className="border-b bg-background/80 backdrop-blur-sm">
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/projects")}
-            >
-              ← Projets
-            </Button>
+            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60">
+                <Sparkles className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                VidéoFlow
+              </span>
+            </Link>
+            <span className="text-muted-foreground">/</span>
             <h1 className="text-lg font-semibold">{projectName}</h1>
           </div>
           
