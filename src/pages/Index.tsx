@@ -1637,12 +1637,6 @@ const Index = () => {
                         <div className="flex gap-2 items-center">
                           {generatedPrompts.length > 0 && (
                             <>
-                              <Button
-                                onClick={() => navigate(`/workspace?project=${currentProjectId}`)}
-                                size="sm"
-                              >
-                                Ouvrir l'éditeur
-                              </Button>
                               {generatedPrompts.filter(p => p.imageUrl).length > 0 && (
                                 <Button
                                   onClick={() => setExportDialogOpen(true)}

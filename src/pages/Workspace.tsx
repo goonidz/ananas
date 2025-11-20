@@ -31,6 +31,9 @@ const Workspace = () => {
   const [projectName, setProjectName] = useState<string>("");
   const [generatedPrompts, setGeneratedPrompts] = useState<GeneratedPrompt[]>([]);
   const [audioUrl, setAudioUrl] = useState<string>("");
+  const [imageWidth, setImageWidth] = useState<number>(1920);
+  const [imageHeight, setImageHeight] = useState<number>(1080);
+  const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [showPreview, setShowPreview] = useState(false);
   const [autoPlayPreview, setAutoPlayPreview] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState<number | null>(null);
@@ -95,6 +98,11 @@ const Workspace = () => {
       if (data.audio_url) {
         setAudioUrl(data.audio_url);
       }
+      
+      // Load image dimensions and aspect ratio
+      if (data.image_width) setImageWidth(data.image_width);
+      if (data.image_height) setImageHeight(data.image_height);
+      if (data.aspect_ratio) setAspectRatio(data.aspect_ratio);
     } catch (error: any) {
       console.error("Error loading project:", error);
       toast.error("Erreur lors du chargement du projet");
@@ -208,8 +216,8 @@ const Workspace = () => {
         scenes: generatedPrompts,
         audioUrl,
         subtitleSettings,
-        width: 1920,
-        height: 1080,
+        width: imageWidth,
+        height: imageHeight,
         framerate: 25,
         onProgress: (progress) => {
           setExportProgress(progress);
