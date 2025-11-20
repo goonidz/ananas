@@ -2546,13 +2546,6 @@ const Index = () => {
             />
           </DialogContent>
         </Dialog>
-
-        {/* Video Preview */}
-        {audioUrl && generatedPrompts.length > 0 && generatedPrompts.every(p => p.imageUrl) && (
-          <div className="mt-8">
-            <VideoPreview audioUrl={audioUrl} prompts={generatedPrompts} />
-          </div>
-        )}
       </div>
     </div>
   );

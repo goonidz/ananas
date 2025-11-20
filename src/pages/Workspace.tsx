@@ -2,14 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { Loader2, Settings, Play, Download, Video, Image as ImageIcon } from "lucide-react";
+import { Loader2, Settings, Download, Video, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SceneSidebar } from "@/components/SceneSidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TimelineBar } from "@/components/TimelineBar";
-import { VideoPreview } from "@/components/VideoPreview";
-import { SubtitleControls } from "@/components/SubtitleControls";
 import { ThumbnailGenerator } from "@/components/ThumbnailGenerator";
 import { toast } from "sonner";
 import { exportToVideo } from "@/lib/videoExportHelpers";
@@ -35,8 +33,6 @@ const Workspace = () => {
   const [imageWidth, setImageWidth] = useState<number>(1920);
   const [imageHeight, setImageHeight] = useState<number>(1080);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
-  const [showPreview, setShowPreview] = useState(false);
-  const [autoPlayPreview, setAutoPlayPreview] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState<number | null>(null);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState<number | null>(null);
   const [subtitleSettings, setSubtitleSettings] = useState({
@@ -236,11 +232,6 @@ const Workspace = () => {
     }
   };
 
-  const handlePlayPreview = () => {
-    setShowPreview(true);
-    setAutoPlayPreview(true);
-  };
-
   const handleExport = () => {
     navigate(`/?project=${currentProjectId}`);
   };
@@ -307,7 +298,6 @@ const Workspace = () => {
   }
 
   const hasAllImages = generatedPrompts.every(p => p.imageUrl);
-  const canShowPreview = audioUrl && hasAllImages;
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -331,28 +321,6 @@ const Workspace = () => {
                 Video duration: {generatedPrompts.reduce((acc, p) => acc + p.duration, 0).toFixed(1)}s
               </span>
             </div>
-
-            {activeTab === "video" && canShowPreview && (
-              <>
-                <Button
-                  onClick={handlePlayPreview}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Play
-                </Button>
-                {showPreview && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowPreview(false);
-                      setAutoPlayPreview(false);
-                    }}
-                  >
-                    Fermer la preview
-                  </Button>
-                )}
-              </>
-            )}
             
             {activeTab === "video" && (
               <>
@@ -366,7 +334,7 @@ const Workspace = () => {
 
                 <Button
                   onClick={handleVideoExport}
-                  disabled={isExportingVideo || !canShowPreview}
+                  disabled={isExportingVideo || !audioUrl || !hasAllImages}
                 >
                   {isExportingVideo ? (
                     <>
@@ -421,34 +389,6 @@ const Workspace = () => {
                   isGeneratingPrompt={isGeneratingPrompt}
                 />
               </div>
-
-              {/* Right side - Preview */}
-              {showPreview && canShowPreview && (
-                <div className="flex-1 flex overflow-hidden border-l">
-                  <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex-1 overflow-auto">
-                      <div className="p-6">
-                        <VideoPreview 
-                          audioUrl={audioUrl} 
-                          prompts={generatedPrompts}
-                          autoPlay={autoPlayPreview}
-                          startFromScene={0}
-                          subtitleSettings={subtitleSettings}
-                          onSubtitleSettingsChange={setSubtitleSettings}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Right sidebar - Subtitle controls */}
-                    <div className="w-[320px] border-l flex-shrink-0">
-                      <SubtitleControls
-                        settings={subtitleSettings}
-                        onChange={setSubtitleSettings}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </TabsContent>
 
