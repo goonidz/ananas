@@ -38,9 +38,15 @@ export function generatePremiereXML(
   const { projectName, framerate = 25, width = 1920, height = 1080, mode } = options;
   
   const clipItems = prompts.map((prompt, index) => {
-    // Calculate frames from the actual scene timecodes
+    // Calculate start frame from the actual scene timecode
     const startFrame = Math.round(prompt.startTime * framerate);
-    const endFrame = Math.round(prompt.endTime * framerate);
+    
+    // For end frame: extend to the start of next scene, or use scene's end if last
+    const nextPrompt = prompts[index + 1];
+    const endFrame = nextPrompt 
+      ? Math.round(nextPrompt.startTime * framerate)
+      : Math.round(prompt.endTime * framerate);
+    
     const duration = endFrame - startFrame;
     
     const imagePath = mode === "with-images" 
