@@ -234,6 +234,11 @@ const Index = () => {
       
       setGeneratedPrompts((data.prompts as unknown as GeneratedPrompt[]) || []);
       
+      // Load image dimensions and aspect ratio
+      if (data.image_width) setImageWidth(data.image_width);
+      if (data.image_height) setImageHeight(data.image_height);
+      if (data.aspect_ratio) setAspectRatio(data.aspect_ratio);
+      
       if (data.style_reference_url) {
         setStyleReferenceUrl(data.style_reference_url);
         setUploadedStyleImageUrl(data.style_reference_url);
@@ -261,6 +266,9 @@ const Index = () => {
           scene_duration_0to1: sceneDuration0to1,
           scene_duration_1to3: sceneDuration1to3,
           scene_duration_3plus: sceneDuration3plus,
+          image_width: imageWidth,
+          image_height: imageHeight,
+          aspect_ratio: aspectRatio,
           style_reference_url: styleReferenceUrl || null,
           audio_url: audioUrl || null,
         })
