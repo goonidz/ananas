@@ -186,7 +186,7 @@ const Index = () => {
 
       setProjectName(data.name || "");
       
-      // Load transcript data without auto-generating scenes
+      // Load transcript data
       if (data.transcript_json) {
         setTranscriptData(data.transcript_json as unknown as TranscriptData);
       }
@@ -194,13 +194,37 @@ const Index = () => {
       const prompts = (data.example_prompts as string[]) || ["", "", ""];
       setExamplePrompts(Array.isArray(prompts) ? prompts : ["", "", ""]);
       
-      // Load existing scenes
-      setScenes((data.scenes as unknown as Scene[]) || []);
-      
-      setGeneratedPrompts((data.prompts as unknown as GeneratedPrompt[]) || []);
+      // Load scene durations
       setSceneDuration0to1(data.scene_duration_0to1 || 4);
       setSceneDuration1to3(data.scene_duration_1to3 || 6);
       setSceneDuration3plus(data.scene_duration_3plus || 8);
+      
+      // Load existing scenes or generate them if they don't exist
+      const existingScenes = (data.scenes as unknown as Scene[]) || [];
+      if (existingScenes.length > 0) {
+        setScenes(existingScenes);
+      } else if (data.transcript_json) {
+        // Auto-generate scenes from transcript if they don't exist
+        const transcriptData = data.transcript_json as unknown as TranscriptData;
+        const generatedScenes = parseTranscriptToScenes(
+          transcriptData,
+          data.scene_duration_0to1 || 4,
+          data.scene_duration_1to3 || 6,
+          data.scene_duration_3plus || 8
+        );
+        setScenes(generatedScenes);
+        
+        // Save generated scenes
+        await supabase
+          .from("projects")
+          .update({ scenes: generatedScenes as any })
+          .eq("id", projectId);
+          
+        toast.success(`${generatedScenes.length} scènes générées automatiquement !`);
+      }
+      
+      setGeneratedPrompts((data.prompts as unknown as GeneratedPrompt[]) || []);
+      
       if (data.style_reference_url) {
         setStyleReferenceUrl(data.style_reference_url);
         setUploadedStyleImageUrl(data.style_reference_url);
@@ -1198,63 +1222,94 @@ const Index = () => {
           </Card>
         ) : (
           <div className="space-y-6">
-                <Card className="p-6">
-                  <h2 className="text-lg font-semibold mb-4">1. Importer la transcription</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="transcript-upload" className="cursor-pointer">
-                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm font-medium mb-1">
-                            {transcriptFile ? transcriptFile.name : "Cliquez pour importer un fichier JSON"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Format: JSON de transcription
-                          </p>
-                        </div>
-                        <input
-                          id="transcript-upload"
-                          type="file"
-                          accept=".json"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                      </label>
+                {transcriptData && (
+                  <Card className="p-4 bg-muted/30 border-primary/20">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-primary" />
+                      <span className="font-medium">Transcription chargée</span>
+                      {audioUrl && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-muted-foreground">Audio chargé</span>
+                        </>
+                      )}
+                      {scenes.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-muted-foreground">{scenes.length} scènes</span>
+                        </>
+                      )}
+                      {examplePrompts.some(p => p.trim()) && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-muted-foreground">Prompts configurés</span>
+                        </>
+                      )}
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                )}
 
-                <Card className="p-6">
-                  <h2 className="text-lg font-semibold mb-4">1b. Importer l'audio (optionnel)</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="audio-upload" className="cursor-pointer">
-                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm font-medium mb-1">
-                            {audioFile ? audioFile.name : audioUrl ? "Audio chargé" : "Cliquez pour importer un fichier audio"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Format: MP3, WAV, M4A, etc.
-                          </p>
-                          {isUploadingAudio && (
-                            <div className="mt-2">
-                              <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
+                {!transcriptData && (
+                  <>
+                    <Card className="p-6">
+                      <h2 className="text-lg font-semibold mb-4">1. Importer la transcription</h2>
+                      <div className="space-y-4">
+                        <div>
+                          <label htmlFor="transcript-upload" className="cursor-pointer">
+                            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                              <p className="text-sm font-medium mb-1">
+                                {transcriptFile ? transcriptFile.name : "Cliquez pour importer un fichier JSON"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Format: JSON de transcription
+                              </p>
                             </div>
-                          )}
+                            <input
+                              id="transcript-upload"
+                              type="file"
+                              accept=".json"
+                              onChange={handleFileUpload}
+                              className="hidden"
+                            />
+                          </label>
                         </div>
-                        <input
-                          id="audio-upload"
-                          type="file"
-                          accept="audio/*"
-                          onChange={handleAudioUpload}
-                          className="hidden"
-                          disabled={isUploadingAudio}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </Card>
+                      </div>
+                    </Card>
+
+                    <Card className="p-6">
+                      <h2 className="text-lg font-semibold mb-4">1b. Importer l'audio (optionnel)</h2>
+                      <div className="space-y-4">
+                        <div>
+                          <label htmlFor="audio-upload" className="cursor-pointer">
+                            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                              <p className="text-sm font-medium mb-1">
+                                {audioFile ? audioFile.name : audioUrl ? "Audio chargé" : "Cliquez pour importer un fichier audio"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Format: MP3, WAV, M4A, etc.
+                              </p>
+                              {isUploadingAudio && (
+                                <div className="mt-2">
+                                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
+                                </div>
+                              )}
+                            </div>
+                            <input
+                              id="audio-upload"
+                              type="file"
+                              accept="audio/*"
+                              onChange={handleAudioUpload}
+                              className="hidden"
+                              disabled={isUploadingAudio}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </Card>
+                  </>
+                )}
 
                 <PresetManager
                   currentConfig={{
