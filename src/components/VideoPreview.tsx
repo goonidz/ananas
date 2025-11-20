@@ -190,12 +190,17 @@ export const VideoPreview = ({ audioUrl, prompts, autoPlay = false, startFromSce
     };
   }, [autoPlay]);
 
+  const currentPrompt = prompts[currentSceneIndex];
+
   // Update canvas when image changes
   useEffect(() => {
-    if (imageRef.current && imageRef.current.complete) {
-      updateCanvas();
+    if (imageRef.current) {
+      // Force image reload when scene changes
+      if (imageRef.current.complete) {
+        updateCanvas();
+      }
     }
-  }, [currentSceneIndex]);
+  }, [currentSceneIndex, currentPrompt?.imageUrl]);
 
   // Format time as MM:SS
   const formatTime = (time: number) => {
@@ -203,8 +208,6 @@ export const VideoPreview = ({ audioUrl, prompts, autoPlay = false, startFromSce
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
-
-  const currentPrompt = prompts[currentSceneIndex];
 
   return (
     <Card className="p-6 space-y-4">
@@ -224,7 +227,7 @@ export const VideoPreview = ({ audioUrl, prompts, autoPlay = false, startFromSce
       />
 
       {/* Canvas for displaying image */}
-      <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+      <div className="relative aspect-video bg-black rounded-lg overflow-hidden group">
         <canvas
           ref={canvasRef}
           width={1920}
@@ -232,13 +235,28 @@ export const VideoPreview = ({ audioUrl, prompts, autoPlay = false, startFromSce
           className="w-full h-full object-contain"
         />
         
+        {/* Hover controls overlay */}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <Button
+            size="lg"
+            onClick={togglePlayPause}
+            className="h-16 w-16 rounded-full"
+          >
+            {isPlaying ? (
+              <Pause className="h-8 w-8" />
+            ) : (
+              <Play className="h-8 w-8" />
+            )}
+          </Button>
+        </div>
+        
         {/* Scene indicator overlay */}
-        <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm">
+        <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm pointer-events-none">
           Scène {currentSceneIndex + 1} / {prompts.length}
         </div>
         
         {/* Playback rate indicator */}
-        <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded text-sm">
+        <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded text-sm pointer-events-none">
           {playbackRate}x
         </div>
       </div>
