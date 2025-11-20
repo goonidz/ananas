@@ -102,81 +102,87 @@ export const SceneSidebar = ({
                     </span>
                   </div>
                   
-                  {/* Actions */}
-                  <div className="flex gap-1 flex-wrap">
-                    {onUploadImage && (
-                      <label onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                          <span>
-                            <Upload className="h-3 w-3 mr-1" />
-                            Upload
-                          </span>
-                        </Button>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
+                  {/* Actions - shown only if scene is selected */}
+                  {selectedSceneIndex === index && (
+                    <div className="flex gap-1 flex-wrap">
+                      {onUploadImage && (
+                        <label onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                            <span className="cursor-pointer">
+                              <Upload className="h-3 w-3 mr-1" />
+                              Upload
+                            </span>
+                          </Button>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                onUploadImage(index, file);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                      
+                      {onRegenerateImage && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs"
+                          onClick={(e) => {
                             e.stopPropagation();
-                            const file = e.target.files?.[0];
-                            if (file) onUploadImage(index, file);
+                            onRegenerateImage(index);
                           }}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                    {onRegenerateImage && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRegenerateImage(index);
-                        }}
-                        disabled={isGeneratingImage === index}
-                      >
-                        {isGeneratingImage === index ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                        )}
-                        Image
-                      </Button>
-                    )}
-                    {onRegeneratePrompt && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRegeneratePrompt(index);
-                        }}
-                        disabled={isGeneratingPrompt === index}
-                      >
-                        {isGeneratingPrompt === index ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                        )}
-                        Prompt
-                      </Button>
-                    )}
-                    {onDeleteScene && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteScene(index);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Suppr
-                      </Button>
-                    )}
-                  </div>
+                          disabled={isGeneratingImage === index}
+                        >
+                          {isGeneratingImage === index ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                          )}
+                          Regenerate Image
+                        </Button>
+                      )}
+                      
+                      {onRegeneratePrompt && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRegeneratePrompt(index);
+                          }}
+                          disabled={isGeneratingPrompt === index}
+                        >
+                          {isGeneratingPrompt === index ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                          )}
+                          Regenerate Prompt
+                        </Button>
+                      )}
+                      
+                      {onDeleteScene && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteScene(index);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>

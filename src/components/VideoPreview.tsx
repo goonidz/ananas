@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
 import { Play, Pause, SkipBack, SkipForward, Subtitles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface GeneratedPrompt {
   scene: string;
@@ -31,6 +32,8 @@ export const VideoPreview = ({ audioUrl, prompts, autoPlay = false, startFromSce
   const [currentSceneIndex, setCurrentSceneIndex] = useState(startFromScene);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSubtitles, setShowSubtitles] = useState(true);
+  const [subtitleSize, setSubtitleSize] = useState<"small" | "medium" | "large">("medium");
+  const [subtitlePosition, setSubtitlePosition] = useState<"top" | "bottom">("bottom");
 
   // Find which scene we're currently in based on time
   const getCurrentSceneIndex = (time: number) => {
@@ -232,8 +235,20 @@ export const VideoPreview = ({ audioUrl, prompts, autoPlay = false, startFromSce
         
         {/* Subtitles */}
         {showSubtitles && currentPrompt?.text && (
-          <div className="absolute bottom-4 left-4 right-4 bg-black/80 text-white px-4 py-3 rounded text-center pointer-events-none">
-            <p className="text-sm md:text-base leading-relaxed">
+          <div 
+            className={cn(
+              "absolute left-4 right-4 bg-black/80 text-white px-4 py-3 rounded text-center pointer-events-none",
+              subtitlePosition === "bottom" ? "bottom-4" : "top-4",
+              subtitleSize === "small" && "py-2",
+              subtitleSize === "large" && "py-4"
+            )}
+          >
+            <p className={cn(
+              "leading-relaxed",
+              subtitleSize === "small" && "text-xs",
+              subtitleSize === "medium" && "text-sm md:text-base",
+              subtitleSize === "large" && "text-base md:text-lg"
+            )}>
               {currentPrompt.text}
             </p>
           </div>
@@ -324,6 +339,30 @@ export const VideoPreview = ({ audioUrl, prompts, autoPlay = false, startFromSce
         >
           <Subtitles className={showSubtitles ? "h-4 w-4" : "h-4 w-4 opacity-50"} />
         </Button>
+        
+        {/* Subtitle settings */}
+        {showSubtitles && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const sizes: Array<"small" | "medium" | "large"> = ["small", "medium", "large"];
+                const currentIndex = sizes.indexOf(subtitleSize);
+                setSubtitleSize(sizes[(currentIndex + 1) % sizes.length]);
+              }}
+            >
+              Taille: {subtitleSize === "small" ? "P" : subtitleSize === "medium" ? "M" : "G"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSubtitlePosition(subtitlePosition === "bottom" ? "top" : "bottom")}
+            >
+              Position: {subtitlePosition === "bottom" ? "Bas" : "Haut"}
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Current scene info */}
