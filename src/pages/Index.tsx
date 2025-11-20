@@ -1699,8 +1699,18 @@ const Index = () => {
                           {generatedPrompts.length > 0 && (
                             <Button
                               onClick={() => generateAllImages(true)}
-                              disabled={isGeneratingImages || !hasTestedFirstTwo}
-                              title={!hasTestedFirstTwo ? "Veuillez d'abord tester avec les 2 premières scènes" : ""}
+                              disabled={
+                                isGeneratingImages || 
+                                !hasTestedFirstTwo || 
+                                generatedPrompts.length < scenes.length
+                              }
+                              title={
+                                !hasTestedFirstTwo 
+                                  ? "Veuillez d'abord tester avec les 2 premières scènes" 
+                                  : generatedPrompts.length < scenes.length
+                                  ? "Veuillez d'abord générer tous les prompts"
+                                  : ""
+                              }
                               variant="default"
                             >
                               {isGeneratingImages ? (
