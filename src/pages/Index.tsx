@@ -1665,24 +1665,6 @@ const Index = () => {
                             )}
                           </Button>
                           <Button
-                            onClick={() => handleGeneratePrompts(true)}
-                            disabled={isGeneratingPrompts}
-                            variant="outline"
-                            size="sm"
-                          >
-                            {isGeneratingPrompts ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Test...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="mr-2 h-4 w-4" />
-                                Tester (15 premières)
-                              </>
-                            )}
-                          </Button>
-                          <Button
                             onClick={() => handleGeneratePrompts(false)}
                             disabled={isGeneratingPrompts}
                           >
