@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil } from "lucide-react";
+import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
@@ -1832,6 +1832,29 @@ const Index = () => {
                                   Générer toutes les images
                                 </>
                               )}
+                            </Button>
+                          )}
+                          {generatedPrompts.length > 0 && !isGeneratingImages && (
+                            <Button
+                              onClick={() => {
+                                const missingImages = generatedPrompts
+                                  .map((p, index) => ({ prompt: p, index }))
+                                  .filter(item => item.prompt && !item.prompt.imageUrl)
+                                  .map(item => item.index + 1);
+                                
+                                if (missingImages.length === 0) {
+                                  toast.success("✅ Toutes les images ont été générées !");
+                                } else {
+                                  toast.warning(
+                                    `⚠️ ${missingImages.length} scène(s) sans image : ${missingImages.join(", ")}`,
+                                    { duration: 8000 }
+                                  );
+                                }
+                              }}
+                              variant="outline"
+                            >
+                              <AlertCircle className="mr-2 h-4 w-4" />
+                              Vérifier les images manquantes
                             </Button>
                           )}
                           {isGeneratingPrompts && (
