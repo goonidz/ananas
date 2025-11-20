@@ -1321,6 +1321,7 @@ const Index = () => {
   };
 
   const handleExport = async () => {
+    console.log("handleExport called");
     if (generatedPrompts.length === 0) {
       toast.error("Aucune donnée à exporter");
       return;
@@ -1351,6 +1352,8 @@ const Index = () => {
         audioUrl: audioUrl || undefined
       };
 
+      console.log("Export options:", options);
+
       let content: string;
       let filename: string;
       
@@ -1367,13 +1370,21 @@ const Index = () => {
           content = generateCSV(generatedPrompts, options);
           filename = `${projectName || "export"}.csv`;
           break;
+        default:
+          toast.error("Format d'export non valide");
+          return;
       }
 
+      console.log("Content generated, length:", content?.length);
+      console.log("Filename:", filename);
+
       if (exportMode === "with-images") {
+        console.log("Starting ZIP download with images");
         toast.info("Préparation du ZIP avec les images...");
         await downloadImagesAsZip(generatedPrompts, content, filename, audioUrl || undefined);
         toast.success("Export ZIP téléchargé avec succès !");
       } else {
+        console.log("Starting file download");
         await downloadFile(content, filename);
         toast.success("Export téléchargé avec succès !");
       }
