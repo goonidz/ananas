@@ -1097,15 +1097,15 @@ const Index = () => {
       
       setIsGeneratingPrompts(false);
 
-      // Step 3: Generate images for these 2 scenes
-      toast.info("Génération des images...");
+      // Step 3: Generate images for these 2 scenes in parallel
+      toast.info("Génération des images en parallèle...");
       setIsGeneratingImages(true);
 
-      for (let i = 0; i < prompts.length; i++) {
-        const prompt = prompts[i];
-        if (!prompt.prompt || prompt.prompt === "Erreur lors de la génération") continue;
+      const imagePromises = prompts.map(async (prompt, i) => {
+        if (!prompt.prompt || prompt.prompt === "Erreur lors de la génération") {
+          return { success: false, index: i };
+        }
 
-        setGeneratingImageIndex(i);
         try {
           const requestBody: any = {
             prompt: prompt.prompt,
@@ -1132,17 +1132,20 @@ const Index = () => {
             return updatedPrompts;
           });
           
-          toast.success(`Image ${i + 1} générée !`);
+          return { success: true, index: i };
         } catch (error: any) {
           console.error(`Error generating image ${i + 1}:`, error);
           toast.error(`Erreur image ${i + 1}: ${error.message}`);
+          return { success: false, index: i };
         }
-      }
+      });
+
+      await Promise.all(imagePromises);
 
       setGeneratingImageIndex(null);
       setIsGeneratingImages(false);
       setHasTestedFirstTwo(true);
-      toast.success("Test terminé ! 2 scènes avec prompts et images générés.");
+      toast.success("Test terminé ! 2 scènes avec prompts et images générés en parallèle.");
     } catch (error: any) {
       console.error("Error in test:", error);
       toast.error(error.message || "Erreur lors du test");
