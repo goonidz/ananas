@@ -319,13 +319,23 @@ const Projects = () => {
                   <div className="space-y-4 py-4">
                     <div className="rounded-lg border p-4 max-h-60 overflow-y-auto bg-muted/30">
                       <h3 className="font-semibold mb-2 text-sm">Transcription :</h3>
-                      <div className="space-y-2 text-sm">
-                        {transcriptData.segments?.map((segment: any, index: number) => (
-                          <p key={index} className="text-muted-foreground">
-                            {segment.text}
-                          </p>
-                        ))}
-                      </div>
+                      {transcriptData.full_text ? (
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {transcriptData.full_text}
+                        </p>
+                      ) : transcriptData.segments && transcriptData.segments.length > 0 ? (
+                        <div className="space-y-2 text-sm">
+                          {transcriptData.segments.map((segment: any, index: number) => (
+                            <p key={index} className="text-muted-foreground">
+                              {segment.text}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">
+                          Aucune transcription disponible
+                        </p>
+                      )}
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button

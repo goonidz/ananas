@@ -59,6 +59,7 @@ serve(async (req) => {
 
     const transcriptionData = await response.json();
     console.log("Transcription successful");
+    console.log("Transcription data:", JSON.stringify(transcriptionData, null, 2));
 
     // Transform Eleven Labs response to match expected format
     const formattedTranscript = {
@@ -68,7 +69,10 @@ serve(async (req) => {
         end_time: utterance.end,
       })) || [],
       language_code: transcriptionData.language_code || "en",
+      full_text: transcriptionData.text || "",
     };
+
+    console.log("Formatted transcript:", JSON.stringify(formattedTranscript, null, 2));
 
     return new Response(JSON.stringify(formattedTranscript), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
