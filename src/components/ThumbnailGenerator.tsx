@@ -228,13 +228,28 @@ export const ThumbnailGenerator = ({ projectId, videoScript }: ThumbnailGenerato
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Générer 3 versions
-      for (let i = 0; i < 3; i++) {
-        const prompt = `Create a YouTube thumbnail in the style of the provided examples. Include the character from the reference image. The video is about: ${videoScript.substring(0, 500)}. Make it eye-catching, professional, and similar in composition to the example thumbnails. Version ${i + 1} with slight variations.`;
+      // Étape 1: Générer 3 prompts créatifs avec Gemini
+      toast.info("Génération de 3 prompts créatifs avec Gemini...");
+      const { data: promptsData, error: promptsError } = await supabase.functions.invoke("generate-thumbnail-prompts", {
+        body: { videoScript }
+      });
 
+      if (promptsError) throw promptsError;
+      if (!promptsData?.prompts || promptsData.prompts.length !== 3) {
+        throw new Error("Failed to generate prompts");
+      }
+
+      const creativePrompts = promptsData.prompts as string[];
+      console.log("Generated creative prompts:", creativePrompts);
+      toast.success("Prompts créatifs générés !");
+
+      // Étape 2: Générer les 3 miniatures avec les prompts créatifs
+      for (let i = 0; i < 3; i++) {
+        toast.info(`Génération de la miniature ${i + 1}/3...`);
+        
         const { data, error } = await supabase.functions.invoke("generate-image-seedream", {
           body: {
-            prompt,
+            prompt: creativePrompts[i],
             image_urls: [...exampleUrls, characterRefUrl],
             width: 1920,
             height: 1080,
