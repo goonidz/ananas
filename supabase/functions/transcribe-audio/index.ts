@@ -35,12 +35,15 @@ serve(async (req) => {
 
     // Prepare form data for Eleven Labs API
     const formData = new FormData();
-    formData.append("audio", audioBlob, "audio.mp3");
+    formData.append("file", audioBlob, "audio.mp3");
+    formData.append("model_id", "scribe_v1");
+    formData.append("diarize", "true");
+    formData.append("timestamps_granularity", "word");
 
     console.log("Sending to Eleven Labs API...");
 
     // Call Eleven Labs Speech to Text API
-    const response = await fetch("https://api.elevenlabs.io/v1/audio-intelligence/speech-to-text", {
+    const response = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
       method: "POST",
       headers: {
         "xi-api-key": ELEVEN_LABS_API_KEY,
@@ -59,12 +62,12 @@ serve(async (req) => {
 
     // Transform Eleven Labs response to match expected format
     const formattedTranscript = {
-      segments: transcriptionData.segments?.map((seg: any) => ({
-        text: seg.text,
-        start_time: seg.start,
-        end_time: seg.end,
+      segments: transcriptionData.utterances?.map((utterance: any) => ({
+        text: utterance.text,
+        start_time: utterance.start,
+        end_time: utterance.end,
       })) || [],
-      language_code: transcriptionData.language || "en",
+      language_code: transcriptionData.language_code || "en",
     };
 
     return new Response(JSON.stringify(formattedTranscript), {
