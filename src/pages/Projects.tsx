@@ -61,6 +61,7 @@ const Projects = () => {
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [styleReferenceFile, setStyleReferenceFile] = useState<File | null>(null);
   const [styleReferenceUrl, setStyleReferenceUrl] = useState("");
+  const [activePresetName, setActivePresetName] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -467,9 +468,18 @@ const Projects = () => {
                           setImageHeight(preset.image_height);
                           setAspectRatio(preset.aspect_ratio);
                           setStyleReferenceUrl(preset.style_reference_url || "");
+                          setActivePresetName(preset.name);
                           toast.success("Preset chargé !");
                         }}
                       />
+                      {activePresetName && (
+                        <div className="mt-3 p-2 bg-primary/10 border border-primary/30 rounded-md">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">Preset actif :</span>
+                            <span className="font-medium text-primary">{activePresetName}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-4">
                       <div className="space-y-2">
