@@ -68,12 +68,36 @@ serve(async (req) => {
 
     console.log("SeedDream 4 input parameters:", input)
 
-    const output = await replicate.run(
-      "bytedance/seedream-4",
-      { input }
-    )
+    let output;
+    let lastError;
+    const MAX_RETRIES = 2;
 
-    console.log("SeedDream 4 generation complete")
+    // Try up to MAX_RETRIES times
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`Generation attempt ${attempt}/${MAX_RETRIES}`)
+        output = await replicate.run(
+          "bytedance/seedream-4",
+          { input }
+        )
+        console.log("SeedDream 4 generation complete")
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        lastError = error;
+        console.error(`Attempt ${attempt} failed:`, error.message)
+        
+        if (attempt < MAX_RETRIES) {
+          console.log(`Retrying in 2 seconds...`)
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+
+    // If all retries failed, throw the last error
+    if (!output) {
+      throw lastError || new Error("Image generation failed after all retries");
+    }
+
     return new Response(JSON.stringify({ output }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
