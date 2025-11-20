@@ -50,6 +50,9 @@ const Workspace = () => {
   });
   const [showThumbnailGenerator, setShowThumbnailGenerator] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [imageWidth, setImageWidth] = useState(1920);
+  const [imageHeight, setImageHeight] = useState(1080);
+  const [aspectRatio, setAspectRatio] = useState("16:9");
 
   // Check authentication
   useEffect(() => {
@@ -96,6 +99,9 @@ const Workspace = () => {
       if (data.audio_url) {
         setAudioUrl(data.audio_url);
       }
+      setImageWidth(data.image_width || 1920);
+      setImageHeight(data.image_height || 1080);
+      setAspectRatio(data.aspect_ratio || "16:9");
     } catch (error: any) {
       console.error("Error loading project:", error);
       toast.error("Erreur lors du chargement du projet");
@@ -208,16 +214,16 @@ const Workspace = () => {
 
       toast.info("Préparation de l'export...");
 
-      // Generate XML
-      const xmlContent = generatePremiereXML(generatedPrompts, {
-        format: "premiere-xml",
-        mode: "with-images",
-        projectName: projectName || "project",
-        framerate: 25,
-        width: 1920,
-        height: 1080,
-        audioUrl,
-      });
+    // Generate XML
+    const xmlContent = generatePremiereXML(generatedPrompts, {
+      format: "premiere-xml",
+      mode: "with-images",
+      projectName: projectName || "project",
+      framerate: 25,
+      width: imageWidth,
+      height: imageHeight,
+      audioUrl,
+    });
 
       // Generate SRT
       const srtContent = generateSRT(generatedPrompts);
