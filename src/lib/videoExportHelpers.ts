@@ -86,9 +86,17 @@ export function generatePremiereXML(
 
   // Generate audio track if audio is provided
   const audioTrack = audioUrl ? `          <audio>
+            <numOutputChannels>2</numOutputChannels>
+            <format>
+              <samplecharacteristics>
+                <samplerate>48000</samplerate>
+                <sampledepth>16</sampledepth>
+              </samplecharacteristics>
+            </format>
             <track>
-              <clipitem id="audio-clip-1" enabled="TRUE">
+              <clipitem id="audio-clip-1">
                 <name>Audio</name>
+                <enabled>TRUE</enabled>
                 <duration>${totalDurationFrames}</duration>
                 <rate>
                   <timebase>${framerate}</timebase>
@@ -98,12 +106,15 @@ export function generatePremiereXML(
                 <in>0</in>
                 <out>${totalDurationFrames}</out>
                 <file id="audio-file-1">
-                  <name>audio</name>
+                  <name>audio.mp3</name>
                   <pathurl>media/audio.mp3</pathurl>
                   <duration>${totalDurationFrames}</duration>
+                  <samplerate>48000</samplerate>
+                  <channelcount>2</channelcount>
                 </file>
                 <sourcetrack>
                   <mediatype>audio</mediatype>
+                  <trackindex>1</trackindex>
                 </sourcetrack>
               </clipitem>
             </track>
