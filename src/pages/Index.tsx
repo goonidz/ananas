@@ -1680,6 +1680,25 @@ const Index = () => {
                               </>
                             )}
                           </Button>
+                          {generatedPrompts.length > 0 && (
+                            <Button
+                              onClick={() => generateAllImages(true)}
+                              disabled={isGeneratingImages}
+                              variant="default"
+                            >
+                              {isGeneratingImages ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Images en cours...
+                                </>
+                              ) : (
+                                <>
+                                  <ImageIcon className="mr-2 h-4 w-4" />
+                                  Générer toutes les images
+                                </>
+                              )}
+                            </Button>
+                          )}
                           {isGeneratingPrompts && (
                             <Button
                               onClick={() => {
@@ -1689,6 +1708,17 @@ const Index = () => {
                               variant="destructive"
                             >
                               Annuler
+                            </Button>
+                          )}
+                          {isGeneratingImages && (
+                            <Button
+                              onClick={() => {
+                                cancelImageGenerationRef.current = true;
+                                toast.info("Annulation des images en cours...");
+                              }}
+                              variant="destructive"
+                            >
+                              Annuler images
                             </Button>
                           )}
                         </div>
