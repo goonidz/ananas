@@ -39,10 +39,8 @@ export function generatePremiereXML(
   let timelinePosition = 0;
   
   const clipItems = prompts.map((prompt, index) => {
-    // Calculate duration based on original timecodes
-    const originalStartFrame = Math.floor(prompt.startTime * framerate);
-    const originalEndFrame = Math.floor(prompt.endTime * framerate);
-    const duration = originalEndFrame - originalStartFrame;
+    // Calculate duration precisely from the scene's actual duration
+    const duration = Math.round(prompt.duration * framerate);
     
     // Use sequential timeline position
     const startFrame = timelinePosition;
