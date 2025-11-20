@@ -1851,15 +1851,14 @@ const Index = () => {
                                   {prompt ? (
                                     <div className="group relative">
                                       <p className="text-sm">{prompt.prompt}</p>
-                                      <div className="absolute top-0 right-0 flex gap-1 bg-background/80 backdrop-blur-sm rounded">
+                                      <div className={`absolute top-0 right-0 flex gap-1 transition-opacity rounded p-1 ${
+                                        editingPromptIndex === index || regeneratingPromptIndex === index
+                                          ? 'opacity-100 bg-background/80 backdrop-blur-sm'
+                                          : 'opacity-0 group-hover:opacity-100 group-hover:bg-background/80 group-hover:backdrop-blur-sm'
+                                      }`}>
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className={`transition-all ${
-                                            editingPromptIndex === index || regeneratingPromptIndex === index
-                                              ? 'opacity-100' 
-                                              : 'opacity-0 group-hover:opacity-100'
-                                          }`}
                                           onClick={() => handleEditPrompt(index)}
                                           disabled={regeneratingPromptIndex === index}
                                           title="Modifier le prompt"
@@ -1869,11 +1868,6 @@ const Index = () => {
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className={`transition-all ${
-                                            regeneratingPromptIndex === index 
-                                              ? 'opacity-100' 
-                                              : 'opacity-0 group-hover:opacity-100'
-                                          }`}
                                           onClick={() => setConfirmRegeneratePrompt(index)}
                                           disabled={regeneratingPromptIndex === index}
                                           title="Régénérer le prompt"
