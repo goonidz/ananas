@@ -85,6 +85,7 @@ RÈGLES STRICTES:
 5. Les prompts doivent être en ANGLAIS pour la génération d'images
 6. Chaque prompt doit faire 60-100 mots et être très détaillé sur le style visuel
 7. Mentionne explicitement les éléments de style observés dans les exemples
+8. N'utilise JAMAIS le mot "dead" dans le prompt (remplace-le par d'autres formulations)
 
 RÈGLES DE SIMPLICITÉ (CRITIQUE):
 - ÉVITE les scènes trop complexes avec beaucoup d'éléments

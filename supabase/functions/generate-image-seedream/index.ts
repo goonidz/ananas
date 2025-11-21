@@ -68,6 +68,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json()
 
+    const sanitizePrompt = (prompt: string): string =>
+      typeof prompt === "string" ? prompt.replace(/dead/gi, "") : prompt;
+
     // If it's a status check request
     if (body.predictionId) {
       console.log("Checking status for prediction:", body.predictionId)
@@ -90,10 +93,12 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log("Generating image with SeedDream 4, prompt:", body.prompt)
+    const sanitizedPrompt = sanitizePrompt(body.prompt)
+
+    console.log("Generating image with SeedDream 4, prompt:", sanitizedPrompt)
     
     const input: any = {
-      prompt: body.prompt,
+      prompt: sanitizedPrompt,
       size: "custom",
       width: body.width || 2048,
       height: body.height || 2048,

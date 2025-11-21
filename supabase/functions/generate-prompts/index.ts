@@ -63,6 +63,7 @@ STRICT RULES FOR GENERATING CONSISTENT PROMPTS:
 4. Include the same types of elements: main subject, visual style, composition, lighting, mood
 5. NEVER deviate from the format established by the examples
 6. Generate prompts in ENGLISH only
+7. NEVER use the word "dead" in the prompt (rephrase with other words instead)
 
 `;
 
