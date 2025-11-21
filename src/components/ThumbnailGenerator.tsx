@@ -14,6 +14,7 @@ import { toast } from "sonner";
 interface ThumbnailGeneratorProps {
   projectId: string;
   videoScript: string;
+  videoTitle: string;
 }
 
 interface ThumbnailPreset {
@@ -30,7 +31,7 @@ interface GeneratedThumbnailHistory {
   created_at: string;
 }
 
-export const ThumbnailGenerator = ({ projectId, videoScript }: ThumbnailGeneratorProps) => {
+export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: ThumbnailGeneratorProps) => {
   const [exampleUrls, setExampleUrls] = useState<string[]>([]);
   const [characterRefUrl, setCharacterRefUrl] = useState<string>("");
   const [generatedThumbnails, setGeneratedThumbnails] = useState<string[]>([]);
@@ -292,6 +293,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript }: ThumbnailGenerato
       const { data: promptsData, error: promptsError } = await supabase.functions.invoke("generate-thumbnail-prompts", {
         body: { 
           videoScript,
+          videoTitle,
           exampleUrls,
           characterRefUrl,
           previousPrompts: previousPrompts.length > 0 ? previousPrompts : undefined

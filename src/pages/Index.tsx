@@ -2201,6 +2201,7 @@ const Index = () => {
                   <ThumbnailGenerator
                     projectId={currentProjectId || ""}
                     videoScript={generatedPrompts.filter(p => p).map(p => p.text).join(" ")}
+                    videoTitle={projectName}
                   />
                 </div>
               </TabsContent>
@@ -2834,6 +2835,7 @@ const Index = () => {
             <ThumbnailGenerator
               projectId={currentProjectId || ""}
               videoScript={generatedPrompts.filter(p => p).map(p => p.text).join(" ")}
+              videoTitle={projectName}
             />
           </DialogContent>
         </Dialog>

@@ -401,6 +401,7 @@ const Workspace = () => {
                 <ThumbnailGenerator
                   projectId={currentProjectId || ""}
                   videoScript={generatedPrompts.map(p => p.text).join(" ")}
+                  videoTitle={projectName}
                 />
               </div>
             </div>
