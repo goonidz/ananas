@@ -299,6 +299,12 @@ export const ThumbnailGenerator = ({ projectId, videoScript }: ThumbnailGenerato
       });
 
       if (promptsError) throw promptsError;
+      
+      // Vérifier si l'edge function a retourné une erreur
+      if (promptsData?.error) {
+        throw new Error(promptsData.error);
+      }
+      
       if (!promptsData?.prompts || promptsData.prompts.length !== 3) {
         throw new Error("Failed to generate prompts");
       }
