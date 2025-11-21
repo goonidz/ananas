@@ -25,24 +25,24 @@ serve(async (req) => {
 
     const systemPrompt = `Tu es un expert en création de descriptions YouTube optimisées pour le référencement et l'engagement. 
 
-Ta mission est de générer 3 descriptions de vidéo qui:
-- Sonnent naturelles et authentiques (PAS comme de l'IA)
-- Sont concises mais engageantes (150-250 caractères recommandés)
-- Utilisent un langage conversationnel et humain
-- Incluent des émotions et de la personnalité
-- Évitent les formulations génériques ou robotiques
-- Capturent l'essence du contenu de manière captivante
-- Incluent un appel à l'action subtil si approprié
+Ta mission est de générer 1 description de vidéo qui:
+- Sonne naturelle et authentique (PAS comme de l'IA)
+- Est concise mais engageante (150-250 caractères recommandés)
+- Utilise un langage conversationnel et humain
+- Inclut des émotions et de la personnalité
+- Évite les formulations génériques ou robotiques
+- Capture l'essence du contenu de manière captivante
+- Inclut un appel à l'action subtil si approprié
 
-IMPORTANT: Les descriptions doivent sembler écrites par un vrai humain passionné, pas par une IA. Varie le ton et le style entre les 3 versions.`;
+IMPORTANT: La description doit sembler écrite par un vrai humain passionné, pas par une IA.`;
 
-    const userPrompt = `Génère 3 descriptions YouTube réalistes et engageantes pour cette vidéo:
+    const userPrompt = `Génère 1 description YouTube réaliste et engageante pour cette vidéo:
 
 Script: ${videoScript}
 
-Retourne uniquement les 3 descriptions sous format JSON strict:
+Retourne uniquement la description sous format JSON strict:
 {
-  "descriptions": ["description 1", "description 2", "description 3"]
+  "description": "description réaliste et engageante"
 }`;
 
     console.log('Calling Lovable AI Gateway for description generation...');
@@ -92,14 +92,14 @@ Retourne uniquement les 3 descriptions sous format JSON strict:
     }
 
     const parsedResponse = JSON.parse(jsonMatch[0]);
-    const descriptions = parsedResponse.descriptions;
+    const description = parsedResponse.description;
 
-    if (!Array.isArray(descriptions) || descriptions.length !== 3) {
-      throw new Error('Le format des descriptions est invalide');
+    if (!description || typeof description !== 'string') {
+      throw new Error('Le format de la description est invalide');
     }
 
     return new Response(
-      JSON.stringify({ descriptions }),
+      JSON.stringify({ description }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
