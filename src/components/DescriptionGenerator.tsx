@@ -18,10 +18,10 @@ interface GeneratedDescriptionHistory {
 }
 
 export const DescriptionGenerator = ({ projectId, videoScript }: DescriptionGeneratorProps) => {
-  const [generatedDescriptions, setGeneratedDescriptions] = useState<string[]>([]);
+  const [generatedDescription, setGeneratedDescription] = useState<string>("");
   const [descriptionHistory, setDescriptionHistory] = useState<GeneratedDescriptionHistory[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedIndex, setCopiedIndex] = useState<number | string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     loadDescriptionHistory();
@@ -46,9 +46,9 @@ export const DescriptionGenerator = ({ projectId, videoScript }: DescriptionGene
     }
   };
 
-  const generateDescriptions = async () => {
+  const generateDescription = async () => {
     setIsGenerating(true);
-    setGeneratedDescriptions([]);
+    setGeneratedDescription("");
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -62,22 +62,22 @@ export const DescriptionGenerator = ({ projectId, videoScript }: DescriptionGene
 
       if (error) throw error;
 
-      const descriptions = data.descriptions || [];
-      setGeneratedDescriptions(descriptions);
+      const description = data.description || "";
+      setGeneratedDescription(description);
 
       // Save to history
       const { error: insertError } = await supabase.from("generated_descriptions").insert({
         project_id: projectId,
         user_id: user.id,
-        descriptions: descriptions,
+        descriptions: [description],
       });
 
       if (insertError) throw insertError;
 
       await loadDescriptionHistory();
-      toast.success("3 descriptions générées avec succès !");
+      toast.success("Description générée avec succès !");
     } catch (error: any) {
-      console.error("Error generating descriptions:", error);
+      console.error("Error generating description:", error);
       toast.error(error.message || "Erreur lors de la génération");
     } finally {
       setIsGenerating(false);
@@ -101,12 +101,12 @@ export const DescriptionGenerator = ({ projectId, videoScript }: DescriptionGene
     }
   };
 
-  const copyToClipboard = async (text: string, index: number | string) => {
+  const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedIndex(index);
+      setCopied(true);
       toast.success("Description copiée !");
-      setTimeout(() => setCopiedIndex(null), 2000);
+      setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast.error("Erreur lors de la copie");
     }
@@ -123,7 +123,7 @@ export const DescriptionGenerator = ({ projectId, videoScript }: DescriptionGene
         <TabsContent value="generate" className="space-y-6">
           {/* Generate Button */}
           <Button
-            onClick={generateDescriptions}
+            onClick={generateDescription}
             disabled={isGenerating}
             className="w-full"
             size="lg"
@@ -136,36 +136,29 @@ export const DescriptionGenerator = ({ projectId, videoScript }: DescriptionGene
             ) : (
               <>
                 <Sparkles className="mr-2 h-5 w-5" />
-                Générer 3 descriptions réalistes
+                Générer une description réaliste
               </>
             )}
           </Button>
 
-          {/* Generated Descriptions */}
-          {generatedDescriptions.length > 0 && (
+          {/* Generated Description */}
+          {generatedDescription && (
             <Card className="p-6 space-y-4">
-              <h3 className="font-semibold text-lg">Descriptions générées</h3>
-              <div className="space-y-3">
-                {generatedDescriptions.map((description, index) => (
-                  <div
-                    key={index}
-                    className="p-4 bg-muted rounded-lg flex items-start justify-between gap-3 group hover:bg-muted/80 transition-colors"
-                  >
-                    <p className="flex-1 text-sm leading-relaxed">{description}</p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => copyToClipboard(description, index)}
-                      className="shrink-0"
-                    >
-                      {copiedIndex === index ? (
-                        <Check className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                ))}
+              <h3 className="font-semibold text-lg">Description générée</h3>
+              <div className="p-4 bg-muted rounded-lg flex items-start justify-between gap-3 group hover:bg-muted/80 transition-colors">
+                <p className="flex-1 text-sm leading-relaxed">{generatedDescription}</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyToClipboard(generatedDescription)}
+                  className="shrink-0"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
             </Card>
           )}
@@ -191,27 +184,20 @@ export const DescriptionGenerator = ({ projectId, videoScript }: DescriptionGene
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="space-y-3">
-                  {(history.descriptions as string[]).map((description, index) => (
-                    <div
-                      key={index}
-                      className="p-4 bg-muted rounded-lg flex items-start justify-between gap-3 group hover:bg-muted/80 transition-colors"
-                    >
-                      <p className="flex-1 text-sm leading-relaxed">{description}</p>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => copyToClipboard(description, `${history.id}-${index}`)}
-                        className="shrink-0"
-                      >
-                        {copiedIndex === `${history.id}-${index}` ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  ))}
+                <div className="p-4 bg-muted rounded-lg flex items-start justify-between gap-3 group hover:bg-muted/80 transition-colors">
+                  <p className="flex-1 text-sm leading-relaxed">{(history.descriptions as string[])[0]}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copyToClipboard((history.descriptions as string[])[0])}
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               </Card>
             ))
