@@ -35,11 +35,18 @@ serve(async (req) => {
       });
     }
 
-    const { videoScript, exampleUrls, characterRefUrl, previousPrompts } = await req.json();
+    const { videoScript, videoTitle, exampleUrls, characterRefUrl, previousPrompts } = await req.json();
 
     if (!videoScript) {
       return new Response(
         JSON.stringify({ error: "Le script vidéo est requis" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!videoTitle) {
+      return new Response(
+        JSON.stringify({ error: "Le titre de la vidéo est requis" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -138,12 +145,12 @@ Retourne UNIQUEMENT un JSON avec ce format exact:
       });
     }
 
-    // Add video script
+    // Add video title and script
     userContent.push({
       type: "text",
-      text: `\n\nSCRIPT DE LA VIDÉO:\n${videoScript}\n\nGénère 3 prompts de miniatures en REPRODUISANT LE STYLE des exemples ci-dessus, mais avec des variations de contenu basées sur le script.
+      text: `\n\nTITRE DE LA VIDÉO:\n"${videoTitle}"\n\nSCRIPT DE LA VIDÉO:\n${videoScript}\n\nGénère 3 prompts de miniatures en REPRODUISANT LE STYLE des exemples ci-dessus, mais avec des variations de contenu basées sur le titre et le script.
 
-IMPORTANT: Crée des designs SIMPLES et ÉPURÉS. Maximum 3-4 éléments visuels. Évite la complexité excessive.`
+IMPORTANT: Crée des designs SIMPLES et ÉPURÉS. Maximum 3-4 éléments visuels. Évite la complexité excessive. Le titre doit être pris en compte dans la conception des miniatures pour assurer la cohérence avec le contenu.`
     });
 
     console.log("Generating thumbnail prompts with Gemini (with images)...");
