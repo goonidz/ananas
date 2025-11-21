@@ -196,7 +196,7 @@ const Index = () => {
 
   // Auto-save project data when it changes
   useEffect(() => {
-    if (currentProjectId && transcriptData) {
+    if (currentProjectId) {
       const timeoutId = setTimeout(() => {
         saveProjectData();
       }, 1000);
