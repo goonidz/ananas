@@ -1257,8 +1257,8 @@ const Index = () => {
     setImageGenerationProgress(0);
     setImageGenerationTotal(promptsToProcess.length);
 
-    // Process in batches of 40
-    const batchSize = 40;
+    // Process in batches of 100
+    const batchSize = 100;
     for (let i = 0; i < promptsToProcess.length; i += batchSize) {
       if (cancelImageGenerationRef.current) {
         toast.info(`Génération annulée. ${successCount} images générées.`);
