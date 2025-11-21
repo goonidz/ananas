@@ -60,33 +60,15 @@ const Projects = () => {
   const [hasCheckedApiKeys, setHasCheckedApiKeys] = useState(false);
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Auth error:", error);
-          toast.error("Erreur d'authentification");
-          setIsLoading(false);
-          navigate("/auth");
-          return;
-        }
-        
-        setUser(session?.user ?? null);
-        if (!session) {
-          navigate("/auth");
-        } else {
-          await loadProjects();
-          checkApiKeys(session.user.id);
-        }
-      } catch (error) {
-        console.error("Unexpected error:", error);
-        toast.error("Une erreur est survenue");
-        setIsLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (!session) {
+        navigate("/auth");
+      } else {
+        loadProjects();
+        checkApiKeys(session.user.id);
       }
-    };
-    
-    initAuth();
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
@@ -353,16 +335,12 @@ const Projects = () => {
     return Array.isArray(prompts) ? prompts.length : 0;
   };
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   return (
