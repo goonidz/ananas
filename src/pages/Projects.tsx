@@ -258,7 +258,7 @@ const Projects = () => {
     
     setIsCreating(true);
     try {
-      // Save all configuration to database
+      // Save all configuration to database (including image settings)
       const { error } = await supabase
         .from("projects")
         .update({
@@ -266,6 +266,9 @@ const Projects = () => {
           scene_duration_1to3: sceneDuration1to3,
           scene_duration_3plus: sceneDuration3plus,
           example_prompts: examplePrompts,
+          image_width: imageWidth,
+          image_height: imageHeight,
+          aspect_ratio: aspectRatio,
           style_reference_url: serializeStyleReferenceUrls(styleReferenceUrls),
         })
         .eq("id", projectId);
@@ -288,7 +291,6 @@ const Projects = () => {
       setIsCreating(false);
     }
   };
-
   const handleDeleteProject = async (projectId: string, projectName: string) => {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer le projet "${projectName}" ?`)) {
       return;
