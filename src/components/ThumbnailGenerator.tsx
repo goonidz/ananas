@@ -992,7 +992,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
 
       {/* Dialog pour modifier un preset */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Modifier le preset</DialogTitle>
           </DialogHeader>
