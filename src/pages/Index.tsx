@@ -359,7 +359,8 @@ const Index = () => {
     const TOLERANCE_FACTOR = 1.5;
     
     transcriptData.segments.forEach((segment, index) => {
-      if (index === 0) {
+      // Start new scene if first segment or if previous scene was just pushed
+      if (index === 0 || currentScene.text === "") {
         currentScene = {
           text: segment.text,
           startTime: segment.start_time,
@@ -392,6 +393,7 @@ const Index = () => {
                 if (currentScene.text.trim()) {
                   scenes.push({ ...currentScene });
                 }
+                // Reset to empty - next iteration will initialize new scene
                 currentScene = { text: "", startTime: 0, endTime: 0 };
               }
             } else {
