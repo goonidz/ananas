@@ -164,22 +164,25 @@ ${videoScript}
 
 ÉTAPE 1 - ANALYSE DU SCRIPT:
 Avant de générer les prompts, tu DOIS identifier dans le script ci-dessus:
-- Les PERSONNAGES principaux mentionnés (noms, descriptions)
-- Les ÉVÉNEMENTS clés de l'histoire
+- Les PERSONNAGES ou PERSONNES mentionnés (noms, rôles, descriptions)
+- Les ÉVÉNEMENTS ou ACTIONS clés
 - Les LIEUX ou ENVIRONNEMENTS décrits
-- Les OBJETS importants mentionnés
-- L'ÉMOTION ou le TON dominant (peur, mystère, drame, etc.)
+- Les OBJETS ou PRODUITS importants mentionnés
+- Le THÈME principal et le TON de la vidéo
 
 ÉTAPE 2 - CRÉATION DES PROMPTS:
-Chaque prompt DOIT inclure des éléments SPÉCIFIQUES tirés du script:
-- Si le script parle d'une personne kidnappée → montre un élément visuel lié à l'enlèvement
-- Si le script mentionne un lieu précis → intègre ce lieu
-- Si le script décrit un événement choquant → représente cet événement
+Chaque prompt DOIT inclure des éléments SPÉCIFIQUES tirés du script. Exemples:
+- Script sur une recette de cuisine → montre le plat ou les ingrédients mentionnés
+- Script sur un voyage → montre le lieu ou monument décrit
+- Script sur une histoire vraie → représente les personnages ou événements clés
+- Script sur un tutoriel → montre le résultat ou l'outil expliqué
+- Script sur un produit → met en avant ce produit spécifique
 
-NE GÉNÈRE PAS de miniatures génériques "horror style" avec des éléments aléatoires.
+NE GÉNÈRE PAS de miniatures génériques avec des éléments aléatoires.
 GÉNÈRE des miniatures qui représentent VRAIMENT le contenu spécifique de CETTE vidéo.
 
-RAPPEL: Les images d'exemples = STYLE VISUEL uniquement. Le CONTENU vient du script ci-dessus.
+RAPPEL: Les images d'exemples = STYLE VISUEL uniquement (couleurs, composition, typographie).
+Le CONTENU des miniatures vient UNIQUEMENT du script ci-dessus.
 
 Crée des designs SIMPLES (3-4 éléments max) mais PERTINENTS au script.`
     });
