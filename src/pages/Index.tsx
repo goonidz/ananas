@@ -111,6 +111,7 @@ const Index = () => {
   const [range1End, setRange1End] = useState(60);      // Default: 0-60s (0-1 min)
   const [range2End, setRange2End] = useState(180);     // Default: 60-180s (1-3 min)
   // range3 is 180+ (3+ min)
+  const [preferSentenceBoundaries, setPreferSentenceBoundaries] = useState(false);
   const cancelGenerationRef = useRef(false);
   const cancelImageGenerationRef = useRef(false);
   const [imageWidth, setImageWidth] = useState<number>(1920);
@@ -336,7 +337,8 @@ const Index = () => {
     duration1to3: number, 
     duration3plus: number,
     rangeEnd1: number = 60,
-    rangeEnd2: number = 180
+    rangeEnd2: number = 180,
+    preferSentenceBoundaries: boolean = false
   ): Scene[] => {
     const scenes: Scene[] = [];
     let currentScene: Scene = { text: "", startTime: 0, endTime: 0 };
@@ -366,37 +368,49 @@ const Index = () => {
       } else {
         const potentialDuration = segment.end_time - currentScene.startTime;
         const maxDuration = getMaxDuration(currentScene.startTime);
-        const maxWithTolerance = maxDuration * TOLERANCE_FACTOR;
         
-        // Check if current scene ends with a sentence
-        const currentEndsWithSentence = endsWithSentence(currentScene.text);
-        
-        if (potentialDuration > maxDuration) {
-          // We've exceeded max duration
-          if (currentEndsWithSentence) {
-            // Current scene ends cleanly with a sentence - cut here
-            if (currentScene.text.trim()) {
-              scenes.push({ ...currentScene });
-            }
-            currentScene = {
-              text: segment.text,
-              startTime: segment.start_time,
-              endTime: segment.end_time
-            };
-          } else if (potentialDuration <= maxWithTolerance) {
-            // We're within tolerance - add segment and check if it completes a sentence
-            currentScene.text += " " + segment.text;
-            currentScene.endTime = segment.end_time;
-            
-            // If adding this segment completes a sentence, cut after it
-            if (endsWithSentence(currentScene.text)) {
+        if (preferSentenceBoundaries) {
+          // Sentence-aware mode: allow tolerance to find sentence boundaries
+          const maxWithTolerance = maxDuration * TOLERANCE_FACTOR;
+          const currentEndsWithSentence = endsWithSentence(currentScene.text);
+          
+          if (potentialDuration > maxDuration) {
+            if (currentEndsWithSentence) {
               if (currentScene.text.trim()) {
                 scenes.push({ ...currentScene });
               }
-              currentScene = { text: "", startTime: 0, endTime: 0 };
+              currentScene = {
+                text: segment.text,
+                startTime: segment.start_time,
+                endTime: segment.end_time
+              };
+            } else if (potentialDuration <= maxWithTolerance) {
+              currentScene.text += " " + segment.text;
+              currentScene.endTime = segment.end_time;
+              
+              if (endsWithSentence(currentScene.text)) {
+                if (currentScene.text.trim()) {
+                  scenes.push({ ...currentScene });
+                }
+                currentScene = { text: "", startTime: 0, endTime: 0 };
+              }
+            } else {
+              if (currentScene.text.trim()) {
+                scenes.push({ ...currentScene });
+              }
+              currentScene = {
+                text: segment.text,
+                startTime: segment.start_time,
+                endTime: segment.end_time
+              };
             }
           } else {
-            // We've exceeded tolerance - must cut now
+            currentScene.text += " " + segment.text;
+            currentScene.endTime = segment.end_time;
+          }
+        } else {
+          // Original mode: strict duration-based cutting
+          if (potentialDuration > maxDuration) {
             if (currentScene.text.trim()) {
               scenes.push({ ...currentScene });
             }
@@ -405,16 +419,14 @@ const Index = () => {
               startTime: segment.start_time,
               endTime: segment.end_time
             };
+          } else {
+            currentScene.text += " " + segment.text;
+            currentScene.endTime = segment.end_time;
           }
-        } else {
-          // Within max duration - add segment
-          currentScene.text += " " + segment.text;
-          currentScene.endTime = segment.end_time;
         }
       }
     });
     
-    // Handle empty currentScene case (when last segment completed a sentence within tolerance)
     if (currentScene.text.trim()) {
       scenes.push(currentScene);
     }
@@ -457,7 +469,8 @@ const Index = () => {
         sceneDuration1to3,
         sceneDuration3plus,
         range1End,
-        range2End
+        range2End,
+        preferSentenceBoundaries
       );
       
       setScenes(generatedScenes);
@@ -1528,7 +1541,8 @@ const Index = () => {
         sceneDuration1to3,
         sceneDuration3plus,
         range1End,
-        range2End
+        range2End,
+        preferSentenceBoundaries
       );
       
       setScenes(generatedScenes);
@@ -2447,6 +2461,26 @@ const Index = () => {
                 </div>
               </div>
 
+              {/* Sentence boundary option */}
+              <div className="flex items-start space-x-3 p-4 border rounded-lg bg-muted/30">
+                <input
+                  type="checkbox"
+                  id="prefer-sentence"
+                  checked={preferSentenceBoundaries}
+                  onChange={(e) => setPreferSentenceBoundaries(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-input"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="prefer-sentence" className="cursor-pointer font-medium">
+                    Respecter les fins de phrases
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Coupe les scènes à la fin des phrases plutôt qu'à la durée exacte. 
+                    <span className="text-amber-600 dark:text-amber-400"> Attention : cela peut augmenter la durée des scènes jusqu'à 50%.</span>
+                  </p>
+                </div>
+              </div>
+
               <div className="flex justify-between">
                 <Button
                   variant="outline"
@@ -2468,7 +2502,8 @@ const Index = () => {
                       sceneDuration1to3,
                       sceneDuration3plus,
                       range1End,
-                      range2End
+                      range2End,
+                      preferSentenceBoundaries
                     );
                     
                     setScenes(newScenes);
