@@ -22,7 +22,38 @@ interface ThumbnailPreset {
   name: string;
   example_urls: string[];
   character_ref_url: string | null;
+  custom_prompt: string | null;
 }
+
+const DEFAULT_THUMBNAIL_PROMPT = `Tu es un expert en création de miniatures YouTube accrocheuses et performantes.
+
+Ton rôle est de créer 3 prompts de miniatures YouTube BASÉS SUR LE CONTENU DU SCRIPT/TITRE fourni, en utilisant le STYLE VISUEL des exemples comme référence.
+
+DISTINCTION CRUCIALE - STYLE vs CONTENU:
+- Les images d'exemples = RÉFÉRENCE DE STYLE UNIQUEMENT (couleurs, composition, typographie, effets visuels, mise en page)
+- Le script/titre de la vidéo = SOURCE DU CONTENU (sujet, personnages, éléments visuels pertinents)
+- NE COPIE JAMAIS les personnes, textes, ou sujets des exemples - ils sont là uniquement pour montrer le style visuel désiré
+- Le contenu de tes miniatures doit être 100% basé sur le script et le titre de la vidéo
+
+CONTEXTE:
+- Tu vas recevoir des images d'exemples montrant le STYLE VISUEL à reproduire (pas le contenu!)
+- Tu vas recevoir le TITRE et le SCRIPT de la vidéo - c'est ça qui détermine le CONTENU des miniatures
+
+RÈGLES STRICTES:
+1. ANALYSE les exemples pour: palette de couleurs, style d'illustration, composition, effets visuels, typographie
+2. IGNORE complètement: les personnes, le texte, le sujet des exemples - ce n'est PAS le contenu à reproduire
+3. CRÉE des miniatures dont le SUJET et le CONTENU viennent UNIQUEMENT du script/titre de la vidéo
+4. Décris des personnages ou éléments visuels pertinents au contenu du script
+5. Les prompts doivent être en ANGLAIS
+6. Chaque prompt: 60-100 mots, détaillé sur le style visuel ET pertinent au contenu du script
+7. N'utilise JAMAIS le mot "dead" (reformule autrement)
+
+RÈGLES DE SIMPLICITÉ:
+- Maximum 3-4 éléments visuels par miniature
+- Compositions épurées et lisibles
+- 1-2 éléments visuels forts, pas beaucoup de petits détails
+- Arrière-plan simple
+- 2-3 éléments visuels clés tirés du script = design efficace`;
 
 interface GeneratedThumbnailHistory {
   id: string;
@@ -54,6 +85,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
   const [editingImageUrl, setEditingImageUrl] = useState<string>("");
   const [editingImagePrompt, setEditingImagePrompt] = useState("");
   const [isEditingImage, setIsEditingImage] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState(DEFAULT_THUMBNAIL_PROMPT);
 
   useEffect(() => {
     loadPresets();
@@ -76,6 +108,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
           ? preset.example_urls.filter((url): url is string => typeof url === 'string')
           : [],
         character_ref_url: preset.character_ref_url,
+        custom_prompt: preset.custom_prompt || null,
       }));
 
       setPresets(mappedPresets);
@@ -120,6 +153,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
 
     setExampleUrls(preset.example_urls || []);
     setCharacterRefUrl(preset.character_ref_url || "");
+    setCustomPrompt(preset.custom_prompt || DEFAULT_THUMBNAIL_PROMPT);
     toast.success("Preset chargé !");
   };
 
@@ -146,6 +180,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
           name: newPresetName.trim(),
           example_urls: exampleUrls,
           character_ref_url: characterRefUrl || null,
+          custom_prompt: customPrompt !== DEFAULT_THUMBNAIL_PROMPT ? customPrompt : null,
         });
 
       if (error) throw error;
@@ -292,7 +327,8 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
           videoTitle,
           exampleUrls,
           characterRefUrl,
-          previousPrompts: previousPrompts.length > 0 ? previousPrompts : undefined
+          previousPrompts: previousPrompts.length > 0 ? previousPrompts : undefined,
+          customPrompt: customPrompt !== DEFAULT_THUMBNAIL_PROMPT ? customPrompt : undefined
         }
       });
 
@@ -787,6 +823,28 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
                 </Button>
               </div>
             )}
+          </div>
+
+          {/* Prompt système personnalisable */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Prompt système (modifiable)
+            </Label>
+            <Textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              rows={10}
+              className="font-mono text-sm"
+              placeholder="Entrez votre prompt personnalisé..."
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCustomPrompt(DEFAULT_THUMBNAIL_PROMPT)}
+              className="text-muted-foreground"
+            >
+              Réinitialiser au prompt par défaut
+            </Button>
           </div>
 
           {/* Bouton de génération */}

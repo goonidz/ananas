@@ -35,7 +35,7 @@ serve(async (req) => {
       });
     }
 
-    const { videoScript, videoTitle, exampleUrls, characterRefUrl, previousPrompts } = await req.json();
+    const { videoScript, videoTitle, exampleUrls, characterRefUrl, previousPrompts, customPrompt } = await req.json();
 
     if (!videoScript) {
       return new Response(
@@ -69,7 +69,8 @@ serve(async (req) => {
 
     const hasCharacterRef = !!characterRefUrl;
     
-    let systemPrompt = `Tu es un expert en création de miniatures YouTube accrocheuses et performantes.
+    // Use custom prompt if provided, otherwise use default
+    let systemPrompt = customPrompt || `Tu es un expert en création de miniatures YouTube accrocheuses et performantes.
 
 Ton rôle est de créer 3 prompts de miniatures YouTube BASÉS SUR LE CONTENU DU SCRIPT/TITRE fourni, en utilisant le STYLE VISUEL des exemples comme référence.
 
@@ -114,6 +115,7 @@ ${previousPrompts.map((p, i) => `${i + 1}. ${p}`).join('\n\n')}
 Generate fresh, innovative prompts that are distinctly different from the above.`;
     }
 
+    // Always append the JSON format instruction
     systemPrompt += `
 
 Retourne UNIQUEMENT un JSON avec ce format exact:

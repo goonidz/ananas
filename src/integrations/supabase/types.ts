@@ -204,6 +204,7 @@ export type Database = {
         Row: {
           character_ref_url: string | null
           created_at: string
+          custom_prompt: string | null
           example_urls: Json | null
           id: string
           name: string
@@ -213,6 +214,7 @@ export type Database = {
         Insert: {
           character_ref_url?: string | null
           created_at?: string
+          custom_prompt?: string | null
           example_urls?: Json | null
           id?: string
           name: string
@@ -222,6 +224,7 @@ export type Database = {
         Update: {
           character_ref_url?: string | null
           created_at?: string
+          custom_prompt?: string | null
           example_urls?: Json | null
           id?: string
           name?: string
