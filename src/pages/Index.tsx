@@ -347,6 +347,15 @@ const Index = () => {
       return duration3plus;
     };
     
+    // Check if text ends with sentence-ending punctuation
+    const endsWithSentence = (text: string): boolean => {
+      const trimmed = text.trim();
+      return /[.!?…]$/.test(trimmed) || /[.!?…]["']$/.test(trimmed);
+    };
+    
+    // Tolerance factor: allow up to 50% extra duration to find a sentence boundary
+    const TOLERANCE_FACTOR = 1.5;
+    
     transcriptData.segments.forEach((segment, index) => {
       if (index === 0) {
         currentScene = {
@@ -357,23 +366,55 @@ const Index = () => {
       } else {
         const potentialDuration = segment.end_time - currentScene.startTime;
         const maxDuration = getMaxDuration(currentScene.startTime);
+        const maxWithTolerance = maxDuration * TOLERANCE_FACTOR;
+        
+        // Check if current scene ends with a sentence
+        const currentEndsWithSentence = endsWithSentence(currentScene.text);
         
         if (potentialDuration > maxDuration) {
-          if (currentScene.text.trim()) {
-            scenes.push({ ...currentScene });
+          // We've exceeded max duration
+          if (currentEndsWithSentence) {
+            // Current scene ends cleanly with a sentence - cut here
+            if (currentScene.text.trim()) {
+              scenes.push({ ...currentScene });
+            }
+            currentScene = {
+              text: segment.text,
+              startTime: segment.start_time,
+              endTime: segment.end_time
+            };
+          } else if (potentialDuration <= maxWithTolerance) {
+            // We're within tolerance - add segment and check if it completes a sentence
+            currentScene.text += " " + segment.text;
+            currentScene.endTime = segment.end_time;
+            
+            // If adding this segment completes a sentence, cut after it
+            if (endsWithSentence(currentScene.text)) {
+              if (currentScene.text.trim()) {
+                scenes.push({ ...currentScene });
+              }
+              currentScene = { text: "", startTime: 0, endTime: 0 };
+            }
+          } else {
+            // We've exceeded tolerance - must cut now
+            if (currentScene.text.trim()) {
+              scenes.push({ ...currentScene });
+            }
+            currentScene = {
+              text: segment.text,
+              startTime: segment.start_time,
+              endTime: segment.end_time
+            };
           }
-          currentScene = {
-            text: segment.text,
-            startTime: segment.start_time,
-            endTime: segment.end_time
-          };
         } else {
+          // Within max duration - add segment
           currentScene.text += " " + segment.text;
           currentScene.endTime = segment.end_time;
         }
       }
     });
     
+    // Handle empty currentScene case (when last segment completed a sentence within tolerance)
     if (currentScene.text.trim()) {
       scenes.push(currentScene);
     }
