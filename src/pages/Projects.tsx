@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Trash2, Sparkles, User as UserIcon } from "lucide-react";
+import { Loader2, Plus, Trash2, Sparkles, User as UserIcon, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { Label } from "@/components/ui/label";
@@ -58,6 +58,8 @@ const Projects = () => {
   const [activePresetName, setActivePresetName] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasCheckedApiKeys, setHasCheckedApiKeys] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingProjectName, setEditingProjectName] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -310,6 +312,42 @@ const Projects = () => {
       console.error("Error deleting project:", error);
       toast.error("Erreur lors de la suppression du projet");
     }
+  };
+
+  const handleStartEditProject = (e: React.MouseEvent, projectId: string, projectName: string) => {
+    e.stopPropagation();
+    setEditingProjectId(projectId);
+    setEditingProjectName(projectName);
+  };
+
+  const handleSaveProjectName = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!editingProjectId || !editingProjectName.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({ name: editingProjectName.trim() })
+        .eq("id", editingProjectId);
+
+      if (error) throw error;
+
+      setProjects(projects.map(p => 
+        p.id === editingProjectId ? { ...p, name: editingProjectName.trim() } : p
+      ));
+      setEditingProjectId(null);
+      setEditingProjectName("");
+      toast.success("Titre mis à jour");
+    } catch (error: any) {
+      console.error("Error updating project name:", error);
+      toast.error("Erreur lors de la mise à jour du titre");
+    }
+  };
+
+  const handleCancelEditProject = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingProjectId(null);
+    setEditingProjectName("");
   };
 
   const handleLogout = async () => {
@@ -871,10 +909,41 @@ const Projects = () => {
                 onClick={() => navigate(`/project?project=${project.id}`)}
               >
                 <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-xl font-bold truncate group-hover:text-primary transition-colors flex-1">
-                      {project.name}
-                    </h3>
+                  <div className="flex items-start justify-between mb-4 gap-2">
+                    {editingProjectId === project.id ? (
+                      <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                          value={editingProjectName}
+                          onChange={(e) => setEditingProjectName(e.target.value)}
+                          className="h-8"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveProjectName(e as any);
+                            if (e.key === "Escape") handleCancelEditProject(e as any);
+                          }}
+                        />
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSaveProjectName}>
+                          <Check className="h-4 w-4 text-green-500" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancelEditProject}>
+                          <X className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="text-xl font-bold truncate group-hover:text-primary transition-colors flex-1">
+                          {project.name}
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleStartEditProject(e, project.id, project.name)}
+                          className="hover:bg-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
