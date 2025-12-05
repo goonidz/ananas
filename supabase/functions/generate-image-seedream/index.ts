@@ -94,21 +94,27 @@ Deno.serve(async (req) => {
     }
 
     const sanitizedPrompt = sanitizePrompt(body.prompt)
-
-    console.log("Generating image with SeedDream 4.5, prompt:", sanitizedPrompt)
     
-    // SeedDream 4.5 requires minimum 3,686,400 pixels (approx 1920x1920)
-    const MIN_PIXELS = 3686400;
+    // Determine which model to use (default to seedream-4.5)
+    const modelVersion = body.model || 'seedream-4.5';
+    const modelName = modelVersion === 'seedream-4' ? 'bytedance/seedream-4' : 'bytedance/seedream-4.5';
+    
+    console.log(`Generating image with ${modelVersion}, prompt:`, sanitizedPrompt)
+    
     let width = body.width || 2048;
     let height = body.height || 2048;
     
-    // Scale up if below minimum while maintaining aspect ratio
-    const currentPixels = width * height;
-    if (currentPixels < MIN_PIXELS) {
-      const scaleFactor = Math.sqrt(MIN_PIXELS / currentPixels);
-      width = Math.ceil(width * scaleFactor);
-      height = Math.ceil(height * scaleFactor);
-      console.log(`Scaled dimensions from ${body.width}x${body.height} to ${width}x${height} to meet minimum pixel requirement`);
+    // SeedDream 4.5 requires minimum 3,686,400 pixels (approx 1920x1920)
+    // SeedDream 4.0 doesn't have this requirement
+    if (modelVersion === 'seedream-4.5') {
+      const MIN_PIXELS = 3686400;
+      const currentPixels = width * height;
+      if (currentPixels < MIN_PIXELS) {
+        const scaleFactor = Math.sqrt(MIN_PIXELS / currentPixels);
+        width = Math.ceil(width * scaleFactor);
+        height = Math.ceil(height * scaleFactor);
+        console.log(`Scaled dimensions from ${body.width}x${body.height} to ${width}x${height} to meet minimum pixel requirement`);
+      }
     }
     
     const input: any = {
@@ -128,7 +134,7 @@ Deno.serve(async (req) => {
     if (body.guidance_scale) input.guidance_scale = body.guidance_scale
     if (body.num_inference_steps) input.num_inference_steps = body.num_inference_steps
 
-    console.log("SeedDream 4.5 input parameters:", input)
+    console.log(`${modelVersion} input parameters:`, input)
 
     let output;
     let lastError;
@@ -139,10 +145,10 @@ Deno.serve(async (req) => {
       try {
         console.log(`Generation attempt ${attempt}/${MAX_RETRIES}`)
         output = await replicate.run(
-          "bytedance/seedream-4.5",
+          modelName,
           { input }
         )
-        console.log("SeedDream 4.5 generation complete")
+        console.log(`${modelVersion} generation complete`)
         break; // Success, exit retry loop
       } catch (error: any) {
         lastError = error;

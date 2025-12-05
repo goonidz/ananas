@@ -53,6 +53,7 @@ const Projects = () => {
   const [imageWidth, setImageWidth] = useState(1920);
   const [imageHeight, setImageHeight] = useState(1080);
   const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [imageModel, setImageModel] = useState("seedream-4.5");
   const [styleReferenceFiles, setStyleReferenceFiles] = useState<File[]>([]);
   const [styleReferenceUrls, setStyleReferenceUrls] = useState<string[]>([]);
   const [activePresetName, setActivePresetName] = useState<string | null>(null);
@@ -566,6 +567,7 @@ const Projects = () => {
                           imageHeight,
                           aspectRatio,
                           styleReferenceUrls,
+                          imageModel,
                         }}
                         onLoadPreset={(preset) => {
                           setSceneDuration0to1(preset.scene_duration_0to1);
@@ -575,6 +577,7 @@ const Projects = () => {
                           setImageWidth(preset.image_width);
                           setImageHeight(preset.image_height);
                           setAspectRatio(preset.aspect_ratio);
+                          setImageModel(preset.image_model);
                           setStyleReferenceUrls(parseStyleReferenceUrls(preset.style_reference_url));
                           setActivePresetName(preset.name);
                           toast.success("Preset chargé !");

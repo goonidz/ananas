@@ -35,6 +35,7 @@ interface Preset {
   image_height: number;
   aspect_ratio: string;
   style_reference_url: string | null;
+  image_model: string;
 }
 
 interface PresetManagerProps {
@@ -47,6 +48,7 @@ interface PresetManagerProps {
     imageHeight: number;
     aspectRatio: string;
     styleReferenceUrls: string[];
+    imageModel: string;
   };
   onLoadPreset: (preset: Preset) => void;
 }
@@ -73,6 +75,7 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
     imageHeight: number;
     aspectRatio: string;
     styleReferenceUrls: string[];
+    imageModel: string;
   } | null>(null);
 
   useEffect(() => {
@@ -102,6 +105,7 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
         image_height: preset.image_height,
         aspect_ratio: preset.aspect_ratio,
         style_reference_url: preset.style_reference_url,
+        image_model: (preset as any).image_model || 'seedream-4.5',
       }));
       
       setPresets(mappedPresets);
@@ -135,6 +139,7 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
           image_width: currentConfig.imageWidth,
           image_height: currentConfig.imageHeight,
           aspect_ratio: currentConfig.aspectRatio,
+          image_model: currentConfig.imageModel,
           style_reference_url: JSON.stringify(currentConfig.styleReferenceUrls),
         },
       ]);
@@ -204,6 +209,7 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
           image_width: editFormData.imageWidth,
           image_height: editFormData.imageHeight,
           aspect_ratio: editFormData.aspectRatio,
+          image_model: editFormData.imageModel,
           style_reference_url: JSON.stringify(editFormData.styleReferenceUrls),
         })
         .eq("id", selectedPresetId);
@@ -232,6 +238,7 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
       imageHeight: preset.image_height,
       aspectRatio: preset.aspect_ratio,
       styleReferenceUrls: parseStyleReferenceUrls(preset.style_reference_url),
+      imageModel: preset.image_model,
     });
     setIsEditDialogOpen(true);
   };
@@ -266,6 +273,7 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
           image_width: sourcePreset.image_width,
           image_height: sourcePreset.image_height,
           aspect_ratio: sourcePreset.aspect_ratio,
+          image_model: sourcePreset.image_model,
           style_reference_url: sourcePreset.style_reference_url,
         },
       ]);
