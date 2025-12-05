@@ -96,6 +96,7 @@ export type Database = {
           example_prompts: Json | null
           id: string
           image_height: number | null
+          image_model: string | null
           image_width: number | null
           name: string
           scene_duration_0to1: number | null
@@ -111,6 +112,7 @@ export type Database = {
           example_prompts?: Json | null
           id?: string
           image_height?: number | null
+          image_model?: string | null
           image_width?: number | null
           name: string
           scene_duration_0to1?: number | null
@@ -126,6 +128,7 @@ export type Database = {
           example_prompts?: Json | null
           id?: string
           image_height?: number | null
+          image_model?: string | null
           image_width?: number | null
           name?: string
           scene_duration_0to1?: number | null
@@ -145,6 +148,7 @@ export type Database = {
           example_prompts: Json | null
           id: string
           image_height: number | null
+          image_model: string | null
           image_width: number | null
           name: string
           prompts: Json | null
@@ -165,6 +169,7 @@ export type Database = {
           example_prompts?: Json | null
           id?: string
           image_height?: number | null
+          image_model?: string | null
           image_width?: number | null
           name: string
           prompts?: Json | null
@@ -185,6 +190,7 @@ export type Database = {
           example_prompts?: Json | null
           id?: string
           image_height?: number | null
+          image_model?: string | null
           image_width?: number | null
           name?: string
           prompts?: Json | null

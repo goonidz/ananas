@@ -117,6 +117,7 @@ const Index = () => {
   const [imageWidth, setImageWidth] = useState<number>(1920);
   const [imageHeight, setImageHeight] = useState<number>(1080);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
+  const [imageModel, setImageModel] = useState<string>("seedream-4.5");
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [generatingImageIndex, setGeneratingImageIndex] = useState<number | null>(null);
   const [generatingPromptIndex, setGeneratingPromptIndex] = useState<number | null>(null);
@@ -207,7 +208,7 @@ const Index = () => {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [currentProjectId, transcriptData, examplePrompts, scenes, generatedPrompts, sceneDuration0to1, sceneDuration1to3, sceneDuration3plus, styleReferenceUrls, audioUrl, imageWidth, imageHeight, aspectRatio]);
+  }, [currentProjectId, transcriptData, examplePrompts, scenes, generatedPrompts, sceneDuration0to1, sceneDuration1to3, sceneDuration3plus, styleReferenceUrls, audioUrl, imageWidth, imageHeight, aspectRatio, imageModel]);
 
   const loadProjectData = async (projectId: string) => {
     try {
@@ -275,6 +276,7 @@ const Index = () => {
       if (projectData.image_width) setImageWidth(projectData.image_width);
       if (projectData.image_height) setImageHeight(projectData.image_height);
       if (projectData.aspect_ratio) setAspectRatio(projectData.aspect_ratio);
+      if (projectData.image_model) setImageModel(projectData.image_model);
       
       const parsedUrls = parseStyleReferenceUrls(data.style_reference_url);
       setStyleReferenceUrls(parsedUrls);
@@ -307,6 +309,7 @@ const Index = () => {
           image_width: imageWidth,
           image_height: imageHeight,
           aspect_ratio: aspectRatio,
+          image_model: imageModel,
           style_reference_url: serializeStyleReferenceUrls(styleReferenceUrls),
           audio_url: audioUrl || null,
         })
@@ -1160,7 +1163,8 @@ const Index = () => {
       const requestBody: any = {
         prompt: prompt.prompt,
         width: imageWidth,
-        height: imageHeight
+        height: imageHeight,
+        model: imageModel
       };
 
       // Add style references if provided
@@ -1297,7 +1301,8 @@ const Index = () => {
           const requestBody: any = {
             prompt: prompt.prompt,
             width: imageWidth,
-            height: imageHeight
+            height: imageHeight,
+            model: imageModel
           };
 
           if (styleReferenceUrls.length > 0) {
@@ -1385,7 +1390,8 @@ const Index = () => {
             const requestBody: any = {
               prompt: prompt.prompt,
               width: imageWidth,
-              height: imageHeight
+              height: imageHeight,
+              model: imageModel
             };
 
             // Add style references if provided
@@ -1547,6 +1553,7 @@ const Index = () => {
     image_height: number;
     aspect_ratio: string;
     style_reference_url: string | null;
+    image_model: string;
   }) => {
     setSceneDuration0to1(preset.scene_duration_0to1);
     setSceneDuration1to3(preset.scene_duration_1to3);
@@ -1555,6 +1562,7 @@ const Index = () => {
     setImageWidth(preset.image_width);
     setImageHeight(preset.image_height);
     setAspectRatio(preset.aspect_ratio);
+    setImageModel(preset.image_model);
     setActivePresetName(preset.name);
     const parsedUrls = parseStyleReferenceUrls(preset.style_reference_url);
     setStyleReferenceUrls(parsedUrls);
@@ -1832,6 +1840,7 @@ const Index = () => {
                     imageHeight,
                     aspectRatio,
                     styleReferenceUrls,
+                    imageModel,
                   }}
                   onLoadPreset={handleLoadPreset}
                 />
@@ -2732,6 +2741,22 @@ const Index = () => {
               </div>
 
               <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Modèle de génération</label>
+                  <Select value={imageModel} onValueChange={setImageModel}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="seedream-4.5">SeedDream 4.5 (Recommandé)</SelectItem>
+                      <SelectItem value="seedream-4">SeedDream 4.0</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    SeedDream 4.5 offre une meilleure qualité mais nécessite des images plus grandes
+                  </p>
+                </div>
+
                 <div>
                   <label className="text-sm font-medium mb-2 block">Format</label>
                   <Select value={aspectRatio} onValueChange={handleAspectRatioChange}>
