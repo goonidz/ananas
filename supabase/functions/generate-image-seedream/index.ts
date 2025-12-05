@@ -97,11 +97,25 @@ Deno.serve(async (req) => {
 
     console.log("Generating image with SeedDream 4.5, prompt:", sanitizedPrompt)
     
+    // SeedDream 4.5 requires minimum 3,686,400 pixels (approx 1920x1920)
+    const MIN_PIXELS = 3686400;
+    let width = body.width || 2048;
+    let height = body.height || 2048;
+    
+    // Scale up if below minimum while maintaining aspect ratio
+    const currentPixels = width * height;
+    if (currentPixels < MIN_PIXELS) {
+      const scaleFactor = Math.sqrt(MIN_PIXELS / currentPixels);
+      width = Math.ceil(width * scaleFactor);
+      height = Math.ceil(height * scaleFactor);
+      console.log(`Scaled dimensions from ${body.width}x${body.height} to ${width}x${height} to meet minimum pixel requirement`);
+    }
+    
     const input: any = {
       prompt: sanitizedPrompt,
       size: "custom",
-      width: body.width || 2048,
-      height: body.height || 2048,
+      width,
+      height,
     }
 
     // Add image reference if provided
