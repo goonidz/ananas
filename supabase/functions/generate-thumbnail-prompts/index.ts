@@ -6,6 +6,46 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Extract key themes from prompts to explicitly ban them
+function extractBannedThemes(prompts: string[]): string[] {
+  const themes = new Set<string>();
+  
+  // Common patterns to extract
+  const patterns = [
+    /['"]([A-Z][A-Z\s\?!:]+)['"]/g,  // Quoted uppercase text (headlines)
+    /text\s+['"]([^'"]+)['"]/gi,      // Text mentions
+    /(?:FERRARI|TRASH|BRAIN FOG|BEAT THE SYSTEM|REAL COST|INFLATION|CRASH|MAKE IT|DIY|HIDDEN COST)/gi,
+  ];
+  
+  for (const prompt of prompts) {
+    // Extract headlines/text
+    for (const pattern of patterns) {
+      const matches = prompt.matchAll(pattern);
+      for (const match of matches) {
+        const theme = match[1] || match[0];
+        if (theme && theme.length > 3 && theme.length < 50) {
+          themes.add(theme.toUpperCase().trim());
+        }
+      }
+    }
+    
+    // Extract key visual concepts
+    const visualConcepts = [
+      'sports car', 'Ferrari', 'fuel hose', 'brain fog', 'split image', 
+      'piggy bank', 'broken piggy', 'smoothie comparison', 'side-by-side',
+      'clock', 'graph', 'dollar sign', 'price tag', 'stomach split'
+    ];
+    
+    for (const concept of visualConcepts) {
+      if (prompt.toLowerCase().includes(concept.toLowerCase())) {
+        themes.add(concept.toUpperCase());
+      }
+    }
+  }
+  
+  return Array.from(themes).slice(0, 15); // Limit to 15 themes
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -111,16 +151,30 @@ ${hasCharacterRef ? '- Le personnage + 1-2 éléments clés liés au script = de
 
     // Ajouter l'instruction sur les prompts précédents si fournis
     if (previousPrompts && Array.isArray(previousPrompts) && previousPrompts.length > 0) {
+      // Extract key themes/concepts to explicitly ban
+      const bannedThemes = extractBannedThemes(previousPrompts);
+      
       systemPrompt += `
 
-CRITICAL CONSTRAINT - AVOID PREVIOUS PROMPTS:
-The user has already generated thumbnails with the following prompts and was NOT satisfied with them.
-You MUST generate 3 COMPLETELY DIFFERENT prompts that explore NEW creative directions while maintaining the style from the examples.
-DO NOT create variations similar to these rejected prompts:
+!!!!! MANDATORY CONSTRAINT - READ THIS FIRST !!!!!
 
-${previousPrompts.map((p, i) => `${i + 1}. ${p}`).join('\n\n')}
+The user has REJECTED all the following ${previousPrompts.length} thumbnails. They want something COMPLETELY DIFFERENT.
 
-Generate fresh, innovative prompts that are distinctly different from the above.`;
+BANNED PROMPTS (DO NOT USE SIMILAR IDEAS):
+${previousPrompts.map((p, i) => `❌ ${i + 1}. ${p}`).join('\n\n')}
+
+BANNED THEMES/CONCEPTS (ABSOLUTELY FORBIDDEN):
+${bannedThemes.map(t => `🚫 "${t}"`).join(', ')}
+
+STRICT REQUIREMENTS:
+1. DO NOT use ANY of the banned themes above
+2. DO NOT create variations of the rejected prompts
+3. Find COMPLETELY NEW angles from the script
+4. Use DIFFERENT visual metaphors
+5. Choose DIFFERENT text/headlines
+6. Explore UNEXPLORED aspects of the video content
+
+Think: "What aspects of the script have NOT been explored yet?"`;
     }
 
     // Always append the JSON format instruction
@@ -212,7 +266,7 @@ Crée des designs SIMPLES (3-4 éléments max) mais PERTINENTS au script.`
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent }
         ],
-        temperature: 0.7,
+        temperature: previousPrompts && previousPrompts.length > 0 ? 0.95 : 0.7,
       }),
     });
 
