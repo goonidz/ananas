@@ -1167,6 +1167,80 @@ const Index = () => {
     }
   };
 
+  // Helper function to poll prediction status with timeout
+  const pollPredictionStatus = async (
+    predictionId: string, 
+    maxWaitMs: number = 300000, // 5 minutes max
+    pollIntervalMs: number = 2000
+  ): Promise<string> => {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      const { data, error } = await supabase.functions.invoke('generate-image-seedream', {
+        body: { predictionId }
+      });
+      
+      if (error) throw error;
+      
+      console.log(`Prediction ${predictionId} status:`, data.status);
+      
+      if (data.status === 'succeeded') {
+        const output = Array.isArray(data.output) ? data.output[0] : data.output;
+        if (!output) throw new Error("No output in succeeded prediction");
+        return output;
+      }
+      
+      if (data.status === 'failed' || data.status === 'canceled') {
+        throw new Error(`Prediction ${data.status}: ${data.error || 'Unknown error'}`);
+      }
+      
+      // Still processing, wait and poll again
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    }
+    
+    throw new Error("Image generation timed out after 5 minutes");
+  };
+
+  // Helper function to generate image with async polling
+  const generateImageAsync = async (
+    prompt: string,
+    sceneIndex: number
+  ): Promise<{ success: boolean; imageUrl?: string }> => {
+    const requestBody: any = {
+      prompt,
+      width: imageWidth,
+      height: imageHeight,
+      model: imageModel,
+      async: true // Enable async mode
+    };
+
+    // Add style references if provided
+    if (styleReferenceUrls.length > 0) {
+      requestBody.image_urls = styleReferenceUrls;
+    }
+
+    // Start the generation (returns immediately with predictionId)
+    const { data: startData, error: startError } = await supabase.functions.invoke('generate-image-seedream', {
+      body: requestBody
+    });
+
+    if (startError) throw startError;
+
+    if (!startData.predictionId) {
+      throw new Error("No prediction ID returned");
+    }
+
+    console.log(`Scene ${sceneIndex + 1}: Started prediction ${startData.predictionId}`);
+
+    // Poll for completion
+    const replicateUrl = await pollPredictionStatus(startData.predictionId);
+    
+    // Save to Supabase Storage
+    const permanentUrl = await saveImageToStorage(replicateUrl, sceneIndex);
+    
+    return { success: true, imageUrl: permanentUrl };
+  };
+
   const generateImage = async (index: number) => {
     const prompt = generatedPrompts[index];
     if (!prompt) {
@@ -1176,36 +1250,17 @@ const Index = () => {
 
     setGeneratingImageIndex(index);
     try {
-      const requestBody: any = {
-        prompt: prompt.prompt,
-        width: imageWidth,
-        height: imageHeight,
-        model: imageModel
-      };
-
-      // Add style references if provided
-      if (styleReferenceUrls.length > 0) {
-        requestBody.image_urls = styleReferenceUrls;
+      // Use async polling mode for single image generation too
+      const result = await generateImageAsync(prompt.prompt, index);
+      
+      if (result.success && result.imageUrl) {
+        setGeneratedPrompts(prev => {
+          const updatedPrompts = [...prev];
+          updatedPrompts[index] = { ...updatedPrompts[index], imageUrl: result.imageUrl };
+          return updatedPrompts;
+        });
+        toast.success("Image générée !");
       }
-
-      const { data, error } = await supabase.functions.invoke('generate-image-seedream', {
-        body: requestBody
-      });
-
-      if (error) throw error;
-
-      const replicateUrl = Array.isArray(data.output) ? data.output[0] : data.output;
-      
-      // Save image to Supabase Storage for permanent access
-      const permanentUrl = await saveImageToStorage(replicateUrl, index);
-      
-      setGeneratedPrompts(prev => {
-        const updatedPrompts = [...prev];
-        updatedPrompts[index] = { ...updatedPrompts[index], imageUrl: permanentUrl };
-        return updatedPrompts;
-      });
-      
-      toast.success("Image générée !");
     } catch (error: any) {
       console.error("Error generating image:", error);
       toast.error(error.message || "Erreur lors de la génération de l'image");
@@ -1385,8 +1440,8 @@ const Index = () => {
     setImageGenerationProgress(0);
     setImageGenerationTotal(promptsToProcess.length);
 
-    // Process in batches of 100
-    const batchSize = 100;
+    // Process in batches of 30 (reduced from 100 to limit Replicate concurrency)
+    const batchSize = 30;
     for (let i = 0; i < promptsToProcess.length; i += batchSize) {
       if (cancelImageGenerationRef.current) {
         toast.info(`Génération annulée. ${successCount} images générées.`);
@@ -1400,61 +1455,31 @@ const Index = () => {
       toast.info(`Génération batch ${batchNumber}/${totalBatches} (${batch.length} images)...`);
 
       const batchPromises = batch.map(async ({ prompt, index }) => {
-        // Function to generate single image with retry
-        const generateWithRetry = async (retryCount = 0): Promise<{ success: boolean; index: number }> => {
-          try {
-            const requestBody: any = {
-              prompt: prompt.prompt,
-              width: imageWidth,
-              height: imageHeight,
-              model: imageModel
-            };
-
-            // Add style references if provided
-            if (styleReferenceUrls.length > 0) {
-              requestBody.image_urls = styleReferenceUrls;
-            }
-
-            const { data, error } = await supabase.functions.invoke('generate-image-seedream', {
-              body: requestBody
-            });
-
-            if (error) throw error;
-
-            const replicateUrl = Array.isArray(data.output) ? data.output[0] : data.output;
-            
-            // Save image to Supabase Storage for permanent access
-            const permanentUrl = await saveImageToStorage(replicateUrl, index);
-            
+        try {
+          // Use async polling mode to avoid edge function timeouts
+          const result = await generateImageAsync(prompt.prompt, index);
+          
+          if (result.success && result.imageUrl) {
             setGeneratedPrompts(prev => {
               const updated = [...prev];
-              updated[index] = { ...updated[index], imageUrl: permanentUrl };
+              updated[index] = { ...updated[index], imageUrl: result.imageUrl };
               return updated;
             });
-            
-            // Mettre à jour la progression
-            setImageGenerationProgress(prev => prev + 1);
-
-            return { success: true, index };
-          } catch (error: any) {
-            // Retry once if it's the first attempt
-            if (retryCount === 0 && error.message?.includes('interrupted')) {
-              console.log(`Retry image ${index + 1} après interruption...`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-              return generateWithRetry(1);
-            }
-            
-            console.error(`Error generating image ${index + 1}:`, error);
-            toast.error(`Erreur image ${index + 1}: ${error.message}`);
-            
-            // Mettre à jour la progression même en cas d'échec
-            setImageGenerationProgress(prev => prev + 1);
-            
-            return { success: false, index };
           }
-        };
-
-        return generateWithRetry();
+          
+          // Update progress
+          setImageGenerationProgress(prev => prev + 1);
+          
+          return { success: result.success, index };
+        } catch (error: any) {
+          console.error(`Error generating image ${index + 1}:`, error);
+          toast.error(`Erreur image ${index + 1}: ${error.message}`);
+          
+          // Update progress even on failure
+          setImageGenerationProgress(prev => prev + 1);
+          
+          return { success: false, index };
+        }
       });
 
       const results = await Promise.all(batchPromises);

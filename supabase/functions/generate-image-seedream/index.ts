@@ -177,6 +177,34 @@ Deno.serve(async (req) => {
 
     console.log(`${modelVersion} input parameters:`, input)
 
+    // Check if async mode is requested (polling-based)
+    const asyncMode = body.async === true;
+    
+    if (asyncMode) {
+      // Async mode: create prediction and return immediately
+      console.log("Starting async generation with polling mode");
+      try {
+        const prediction = await replicate.predictions.create({
+          model: modelName,
+          input
+        });
+        
+        console.log("Prediction created:", prediction.id, "status:", prediction.status);
+        
+        return new Response(JSON.stringify({ 
+          predictionId: prediction.id,
+          status: prediction.status
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      } catch (error: any) {
+        console.error("Error creating prediction:", error.message);
+        throw error;
+      }
+    }
+    
+    // Synchronous mode (original behavior)
     let output;
     let lastError;
     const MAX_RETRIES = 4;
