@@ -561,7 +561,7 @@ const Index = () => {
       // Créer une copie des prompts existants
       const updatedPrompts = [...generatedPrompts];
       const filteredPrompts = examplePrompts.filter(p => p.trim() !== "");
-      const BATCH_SIZE = 10;
+      const BATCH_SIZE = 50;
 
       // Process scenes in batches of 10 for parallel generation
       for (let batchStart = 0; batchStart < sceneCount; batchStart += BATCH_SIZE) {
