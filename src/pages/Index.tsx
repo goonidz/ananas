@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle, FileText, ArrowUp } from "lucide-react";
+import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle, FileText, ArrowUp, MonitorPlay } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
@@ -56,6 +56,7 @@ import { PresetManager } from "@/components/PresetManager";
 import { ThumbnailGenerator } from "@/components/ThumbnailGenerator";
 import { TitleGenerator } from "@/components/TitleGenerator";
 import { DescriptionGenerator } from "@/components/DescriptionGenerator";
+import { YouTubeTester } from "@/components/YouTubeTester";
 import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -1808,6 +1809,10 @@ const Index = () => {
                   <FileText className="h-4 w-4" />
                   Description
                 </TabsTrigger>
+                <TabsTrigger value="test" className="flex items-center gap-2">
+                  <MonitorPlay className="h-4 w-4" />
+                  Test
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -2462,6 +2467,15 @@ const Index = () => {
                   <DescriptionGenerator
                     projectId={currentProjectId || ""}
                     videoScript={generatedPrompts.filter(p => p).map(p => p.text).join(" ")}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="test" className="m-0">
+                <div className="max-w-6xl mx-auto">
+                  <YouTubeTester
+                    projectId={currentProjectId || ""}
+                    videoTitle={projectName}
                   />
                 </div>
               </TabsContent>
