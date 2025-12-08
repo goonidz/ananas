@@ -112,6 +112,7 @@ const Index = () => {
   const [range2End, setRange2End] = useState(180);     // Default: 60-180s (1-3 min)
   // range3 is 180+ (3+ min)
   const [preferSentenceBoundaries, setPreferSentenceBoundaries] = useState(true);
+  const [promptSystemMessage, setPromptSystemMessage] = useState<string>("");
   const cancelGenerationRef = useRef(false);
   const cancelImageGenerationRef = useRef(false);
   const [imageWidth, setImageWidth] = useState<number>(1920);
@@ -222,7 +223,7 @@ const Index = () => {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [currentProjectId, transcriptData, examplePrompts, scenes, generatedPrompts, sceneDuration0to1, sceneDuration1to3, sceneDuration3plus, styleReferenceUrls, audioUrl, imageWidth, imageHeight, aspectRatio, imageModel]);
+  }, [currentProjectId, transcriptData, examplePrompts, scenes, generatedPrompts, sceneDuration0to1, sceneDuration1to3, sceneDuration3plus, styleReferenceUrls, audioUrl, imageWidth, imageHeight, aspectRatio, imageModel, promptSystemMessage]);
 
   const loadProjectData = async (projectId: string) => {
     try {
@@ -291,6 +292,7 @@ const Index = () => {
       if (projectData.image_height) setImageHeight(projectData.image_height);
       if (projectData.aspect_ratio) setAspectRatio(projectData.aspect_ratio);
       if (projectData.image_model) setImageModel(projectData.image_model);
+      if (projectData.prompt_system_message) setPromptSystemMessage(projectData.prompt_system_message);
       
       const parsedUrls = parseStyleReferenceUrls(data.style_reference_url);
       setStyleReferenceUrls(parsedUrls);
@@ -326,6 +328,7 @@ const Index = () => {
           image_model: imageModel,
           style_reference_url: serializeStyleReferenceUrls(styleReferenceUrls),
           audio_url: audioUrl || null,
+          prompt_system_message: promptSystemMessage || null,
         })
         .eq("id", currentProjectId);
 
@@ -601,7 +604,8 @@ const Index = () => {
                 sceneIndex: originalIndex + 1,
                 totalScenes: scenes.length,
                 startTime: scene.startTime,
-                endTime: scene.endTime
+                endTime: scene.endTime,
+                customSystemPrompt: promptSystemMessage || undefined
               },
             });
 
@@ -700,7 +704,8 @@ const Index = () => {
           sceneIndex: sceneIndex + 1,
           totalScenes: scenes.length,
           startTime: scene.startTime,
-          endTime: scene.endTime
+          endTime: scene.endTime,
+          customSystemPrompt: promptSystemMessage || undefined
         },
       });
 
@@ -774,7 +779,8 @@ const Index = () => {
           sceneIndex: sceneIndex + 1,
           totalScenes: scenes.length,
           startTime: scene.startTime,
-          endTime: scene.endTime
+          endTime: scene.endTime,
+          customSystemPrompt: promptSystemMessage || undefined
         },
       });
 
@@ -1341,7 +1347,8 @@ const Index = () => {
               sceneIndex: i + 1,
               totalScenes: scenes.length,
               startTime: scene.startTime,
-              endTime: scene.endTime
+              endTime: scene.endTime,
+              customSystemPrompt: promptSystemMessage || undefined
             },
           });
 
@@ -2694,6 +2701,22 @@ const Index = () => {
               </div>
 
               <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Prompt système personnalisé (optionnel)
+                  </label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Personnalisez les instructions données à l'IA pour générer les prompts. Laissez vide pour utiliser le prompt par défaut.
+                  </p>
+                  <Textarea
+                    placeholder="Ex: Tu es un expert en création de prompts pour la génération d'images. Tu dois créer des prompts détaillés avec un style cinématique, en incluant les personnages, l'ambiance, l'éclairage..."
+                    value={promptSystemMessage}
+                    onChange={(e) => setPromptSystemMessage(e.target.value)}
+                    rows={6}
+                    className="resize-none font-mono text-sm"
+                  />
+                </div>
+
                 <div>
                   <label className="text-sm font-medium mb-2 block">
                     Exemples de prompts (2-3 recommandés pour la consistance)

@@ -55,6 +55,7 @@ const Projects = () => {
   const [imageHeight, setImageHeight] = useState(1080);
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [imageModel, setImageModel] = useState("seedream-4.5");
+  const [promptSystemMessage, setPromptSystemMessage] = useState("");
   const [styleReferenceFiles, setStyleReferenceFiles] = useState<File[]>([]);
   const [styleReferenceUrls, setStyleReferenceUrls] = useState<string[]>([]);
   const [activePresetName, setActivePresetName] = useState<string | null>(null);
@@ -361,6 +362,7 @@ const Projects = () => {
           image_height: imageHeight,
           aspect_ratio: aspectRatio,
           image_model: imageModel,
+          prompt_system_message: promptSystemMessage || null,
           style_reference_url: serializeStyleReferenceUrls(styleReferenceUrls),
         })
         .eq("id", projectId);
@@ -825,6 +827,19 @@ const Projects = () => {
 
                 {workflowStep === "prompt-config" && (
                   <div className="space-y-4 py-4">
+                    <div>
+                      <Label>Prompt système personnalisé (optionnel)</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Personnalisez les instructions données à l'IA pour générer les prompts
+                      </p>
+                      <Textarea
+                        value={promptSystemMessage}
+                        onChange={(e) => setPromptSystemMessage(e.target.value)}
+                        placeholder="Ex: Tu es un expert en création de prompts pour la génération d'images. Tu dois créer des prompts détaillés avec un style cinématique..."
+                        rows={4}
+                        className="font-mono text-sm"
+                      />
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       Ajoutez 2-3 exemples de prompts pour que l'IA comprenne le style souhaité
                     </p>
