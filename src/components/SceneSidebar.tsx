@@ -79,7 +79,7 @@ export const SceneSidebar = ({
   };
 
   return (
-    <div className="h-full flex flex-col border-r bg-background">
+    <div className="h-full flex flex-col border-r bg-background relative">
       {/* Search */}
       <div className="p-4 border-b">
         <div className="relative">
