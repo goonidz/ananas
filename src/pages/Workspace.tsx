@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { Loader2, Settings, Download, Video, Image as ImageIcon, Sparkles, Pencil } from "lucide-react";
+import { Loader2, Settings, Download, Video, Image as ImageIcon, Sparkles, Pencil, MonitorPlay } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +10,7 @@ import { SceneSidebar } from "@/components/SceneSidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TimelineBar } from "@/components/TimelineBar";
 import { ThumbnailGenerator } from "@/components/ThumbnailGenerator";
+import { YouTubeTester } from "@/components/YouTubeTester";
 import { toast } from "sonner";
 import { exportToVideo } from "@/lib/videoExportHelpers";
 
@@ -434,6 +435,10 @@ const Workspace = () => {
                 <ImageIcon className="h-4 w-4" />
                 Miniatures
               </TabsTrigger>
+              <TabsTrigger value="test" className="flex items-center gap-2">
+                <MonitorPlay className="h-4 w-4" />
+                Test
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -461,6 +466,17 @@ const Workspace = () => {
                 <ThumbnailGenerator
                   projectId={currentProjectId || ""}
                   videoScript={generatedPrompts.map(p => p.text).join(" ")}
+                  videoTitle={projectName}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="test" className="flex-1 overflow-auto m-0">
+            <div className="p-6">
+              <div className="max-w-6xl mx-auto">
+                <YouTubeTester
+                  projectId={currentProjectId || ""}
                   videoTitle={projectName}
                 />
               </div>
