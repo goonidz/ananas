@@ -1369,33 +1369,18 @@ const Index = () => {
         }
 
         try {
-          const requestBody: any = {
-            prompt: prompt.prompt,
-            width: imageWidth,
-            height: imageHeight,
-            model: imageModel
-          };
-
-          if (styleReferenceUrls.length > 0) {
-            requestBody.image_urls = styleReferenceUrls;
+          // Use async polling mode to avoid edge function timeouts
+          const result = await generateImageAsync(prompt.prompt, i);
+          
+          if (result.success && result.imageUrl) {
+            setGeneratedPrompts(prev => {
+              const updatedPrompts = [...prev];
+              updatedPrompts[i] = { ...updatedPrompts[i], imageUrl: result.imageUrl };
+              return updatedPrompts;
+            });
           }
-
-          const { data, error } = await supabase.functions.invoke('generate-image-seedream', {
-            body: requestBody
-          });
-
-          if (error) throw error;
-
-          const replicateUrl = Array.isArray(data.output) ? data.output[0] : data.output;
-          const permanentUrl = await saveImageToStorage(replicateUrl, i);
           
-          setGeneratedPrompts(prev => {
-            const updatedPrompts = [...prev];
-            updatedPrompts[i] = { ...updatedPrompts[i], imageUrl: permanentUrl };
-            return updatedPrompts;
-          });
-          
-          return { success: true, index: i };
+          return { success: result.success, index: i };
         } catch (error: any) {
           console.error(`Error generating image ${i + 1}:`, error);
           toast.error(`Erreur image ${i + 1}: ${error.message}`);
