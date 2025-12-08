@@ -35,7 +35,7 @@ serve(async (req) => {
       });
     }
 
-    const { scene, summary, examplePrompts, sceneIndex, totalScenes, startTime, endTime } = await req.json();
+    const { scene, summary, examplePrompts, sceneIndex, totalScenes, startTime, endTime, customSystemPrompt } = await req.json();
 
     if (!scene) {
       return new Response(
@@ -53,8 +53,23 @@ serve(async (req) => {
       );
     }
 
-    // Construct the system prompt in English
-    let systemPrompt = `You are an expert at generating prompts for AI image creation (like Midjourney, Stable Diffusion, DALL-E).
+    // Use custom system prompt if provided, otherwise use default
+    let systemPrompt: string;
+    
+    if (customSystemPrompt && customSystemPrompt.trim()) {
+      systemPrompt = customSystemPrompt.trim();
+      
+      // Add examples if provided
+      if (examplePrompts && Array.isArray(examplePrompts) && examplePrompts.length > 0) {
+        systemPrompt += `\n\nEXAMPLES TO FOLLOW STRICTLY:\n\n`;
+        examplePrompts.forEach((example: string, i: number) => {
+          systemPrompt += `Example ${i + 1}:\n"${example}"\n\n`;
+        });
+        systemPrompt += `You MUST generate a prompt that follows EXACTLY this structure and style.\n\n`;
+      }
+    } else {
+      // Default system prompt
+      systemPrompt = `You are an expert at generating prompts for AI image creation (like Midjourney, Stable Diffusion, DALL-E).
 
 STRICT RULES FOR GENERATING CONSISTENT PROMPTS:
 1. Follow EXACTLY the structure and style of the examples below
@@ -78,16 +93,16 @@ CONTENT SAFETY - STRICTLY FORBIDDEN (to avoid AI image generator blocks):
 
 `;
 
-    // Add examples if provided
-    if (examplePrompts && Array.isArray(examplePrompts) && examplePrompts.length > 0) {
-      systemPrompt += `EXAMPLES TO FOLLOW STRICTLY:\n\n`;
-      examplePrompts.forEach((example: string, i: number) => {
-        systemPrompt += `Example ${i + 1}:\n"${example}"\n\n`;
-      });
-      systemPrompt += `You MUST generate a prompt that follows EXACTLY this structure and style.\n\n`;
-    }
+      // Add examples if provided
+      if (examplePrompts && Array.isArray(examplePrompts) && examplePrompts.length > 0) {
+        systemPrompt += `EXAMPLES TO FOLLOW STRICTLY:\n\n`;
+        examplePrompts.forEach((example: string, i: number) => {
+          systemPrompt += `Example ${i + 1}:\n"${example}"\n\n`;
+        });
+        systemPrompt += `You MUST generate a prompt that follows EXACTLY this structure and style.\n\n`;
+      }
 
-    systemPrompt += `Your role is to create ONE detailed visual prompt for a specific scene from a video/audio.
+      systemPrompt += `Your role is to create ONE detailed visual prompt for a specific scene from a video/audio.
 
 For this scene, you must:
 1. Identify key visual elements from the text
@@ -97,6 +112,7 @@ For this scene, you must:
 5. Think about visual coherence with the global story context
 
 Return ONLY the prompt text, no JSON, no title, just the optimized prompt in ENGLISH.`;
+    }
 
     // Build user message with context
     let userMessage = "";
