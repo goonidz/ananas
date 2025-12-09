@@ -84,20 +84,14 @@ const Workspace = () => {
     }
   }, [currentProjectId]);
 
-  // Poll for project updates when there are active jobs (to refresh images in real-time)
+  // Poll for project updates to refresh images in real-time
   useEffect(() => {
     if (!currentProjectId) return;
 
-    const pollInterval = setInterval(async () => {
-      // Check if there are active image jobs for this project
-      const { data: activeJobs } = await supabase
-        .from('generation_jobs')
-        .select('id, job_type, status')
-        .eq('project_id', currentProjectId)
-        .in('status', ['pending', 'processing'])
-        .in('job_type', ['images', 'single_image']);
+    let lastPromptsHash = JSON.stringify(generatedPrompts.map(p => p.imageUrl));
 
-      if (activeJobs && activeJobs.length > 0) {
+    const pollInterval = setInterval(async () => {
+      try {
         // Refresh prompts to get new images
         const { data: projectData } = await supabase
           .from('projects')
@@ -106,10 +100,20 @@ const Workspace = () => {
           .single();
 
         if (projectData?.prompts) {
-          setGeneratedPrompts(projectData.prompts as unknown as GeneratedPrompt[]);
+          const newPrompts = projectData.prompts as unknown as GeneratedPrompt[];
+          const newHash = JSON.stringify(newPrompts.map(p => p.imageUrl));
+          
+          // Only update if images have changed
+          if (newHash !== lastPromptsHash) {
+            console.log('Images updated, refreshing UI');
+            setGeneratedPrompts(newPrompts);
+            lastPromptsHash = newHash;
+          }
         }
+      } catch (error) {
+        console.error('Error polling for images:', error);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 3000); // Poll every 3 seconds
 
     return () => clearInterval(pollInterval);
   }, [currentProjectId]);
