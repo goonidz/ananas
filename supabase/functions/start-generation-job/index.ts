@@ -824,74 +824,159 @@ async function processImagesJob(
   // Build webhook URL
   const webhookUrl = `${supabaseUrl}/functions/v1/replicate-webhook`;
 
-  // Start all generations with webhooks (non-blocking)
+  // Batch settings to avoid "Queue is full" errors from Replicate
+  const BATCH_SIZE = 10; // Send 10 images at a time
+  const DELAY_BETWEEN_BATCHES_MS = 3000; // 3 seconds between batches
+  const DELAY_BETWEEN_REQUESTS_MS = 200; // 200ms between individual requests in a batch
+
   let startedCount = 0;
+  let failedCount = 0;
   
-  for (const { prompt, index } of promptsToProcess) {
-    try {
-      const requestBody: any = {
-        prompt: prompt.prompt,
-        width: imageWidth,
-        height: imageHeight,
-        model: imageModel,
-        async: true,
-        webhook_url: webhookUrl,
-      };
+  // Helper function to delay
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  // Process in batches
+  for (let batchStart = 0; batchStart < promptsToProcess.length; batchStart += BATCH_SIZE) {
+    const batch = promptsToProcess.slice(batchStart, batchStart + BATCH_SIZE);
+    console.log(`Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(promptsToProcess.length / BATCH_SIZE)} (${batch.length} images)`);
+    
+    for (let i = 0; i < batch.length; i++) {
+      const { prompt, index } = batch[i];
+      
+      try {
+        const requestBody: any = {
+          prompt: prompt.prompt,
+          width: imageWidth,
+          height: imageHeight,
+          model: imageModel,
+          async: true,
+          webhook_url: webhookUrl,
+        };
 
-      if (styleReferenceUrls.length > 0) {
-        requestBody.image_urls = styleReferenceUrls;
-      }
+        if (styleReferenceUrls.length > 0) {
+          requestBody.image_urls = styleReferenceUrls;
+        }
 
-      // Start async generation with webhook
-      const startResponse = await fetch(`${supabaseUrl}/functions/v1/generate-image-seedream`, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!startResponse.ok) {
-        console.error(`Failed to start generation for scene ${index + 1}: ${startResponse.status}`);
-        continue;
-      }
-
-      const startData = await startResponse.json();
-      const predictionId = startData.predictionId;
-
-      if (!predictionId) {
-        console.error(`No prediction ID for scene ${index + 1}`);
-        continue;
-      }
-
-      // Save to pending_predictions table
-      const { error: insertError } = await adminClient
-        .from('pending_predictions')
-        .insert({
-          job_id: jobId,
-          prediction_id: predictionId,
-          prediction_type: 'scene_image',
-          scene_index: index,
-          project_id: projectId,
-          user_id: userId,
-          metadata: { prompt: prompt.prompt },
-          status: 'pending'
+        // Start async generation with webhook
+        const startResponse = await fetch(`${supabaseUrl}/functions/v1/generate-image-seedream`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
         });
 
-      if (insertError) {
-        console.error(`Error saving prediction ${predictionId}:`, insertError);
-      } else {
-        startedCount++;
-        console.log(`Scene ${index + 1} generation started: ${predictionId}`);
-      }
+        if (!startResponse.ok) {
+          const errorText = await startResponse.text();
+          console.error(`Failed to start generation for scene ${index + 1}: ${startResponse.status} - ${errorText}`);
+          
+          // If queue is full, wait longer and retry once
+          if (errorText.includes('Queue is full')) {
+            console.log(`Queue full for scene ${index + 1}, waiting 10s and retrying...`);
+            await delay(10000);
+            
+            const retryResponse = await fetch(`${supabaseUrl}/functions/v1/generate-image-seedream`, {
+              method: 'POST',
+              headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(requestBody),
+            });
+            
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              const predictionId = retryData.predictionId;
+              
+              if (predictionId) {
+                await adminClient
+                  .from('pending_predictions')
+                  .insert({
+                    job_id: jobId,
+                    prediction_id: predictionId,
+                    prediction_type: 'scene_image',
+                    scene_index: index,
+                    project_id: projectId,
+                    user_id: userId,
+                    metadata: { prompt: prompt.prompt },
+                    status: 'pending'
+                  });
+                startedCount++;
+                console.log(`Scene ${index + 1} generation started on retry: ${predictionId}`);
+              }
+            } else {
+              failedCount++;
+              // Save as failed prediction so it can be retried later
+              await adminClient
+                .from('pending_predictions')
+                .insert({
+                  job_id: jobId,
+                  prediction_id: `failed_${index}_${Date.now()}`,
+                  prediction_type: 'scene_image',
+                  scene_index: index,
+                  project_id: projectId,
+                  user_id: userId,
+                  metadata: { prompt: prompt.prompt, error: 'Queue full after retry' },
+                  status: 'failed',
+                  error_message: 'Queue is full - will be retried automatically'
+                });
+            }
+          } else {
+            failedCount++;
+          }
+          continue;
+        }
 
-    } catch (error) {
-      console.error(`Error starting generation for scene ${index + 1}:`, error);
+        const startData = await startResponse.json();
+        const predictionId = startData.predictionId;
+
+        if (!predictionId) {
+          console.error(`No prediction ID for scene ${index + 1}`);
+          failedCount++;
+          continue;
+        }
+
+        // Save to pending_predictions table
+        const { error: insertError } = await adminClient
+          .from('pending_predictions')
+          .insert({
+            job_id: jobId,
+            prediction_id: predictionId,
+            prediction_type: 'scene_image',
+            scene_index: index,
+            project_id: projectId,
+            user_id: userId,
+            metadata: { prompt: prompt.prompt },
+            status: 'pending'
+          });
+
+        if (insertError) {
+          console.error(`Error saving prediction ${predictionId}:`, insertError);
+        } else {
+          startedCount++;
+          console.log(`Scene ${index + 1} generation started: ${predictionId}`);
+        }
+
+        // Small delay between individual requests within a batch
+        if (i < batch.length - 1) {
+          await delay(DELAY_BETWEEN_REQUESTS_MS);
+        }
+
+      } catch (error) {
+        console.error(`Error starting generation for scene ${index + 1}:`, error);
+        failedCount++;
+      }
+    }
+    
+    // Delay between batches to avoid overwhelming Replicate
+    if (batchStart + BATCH_SIZE < promptsToProcess.length) {
+      console.log(`Batch complete. Waiting ${DELAY_BETWEEN_BATCHES_MS / 1000}s before next batch...`);
+      await delay(DELAY_BETWEEN_BATCHES_MS);
     }
   }
 
-  console.log(`Started ${startedCount}/${promptsToProcess.length} image generations. Waiting for webhooks...`);
+  console.log(`Started ${startedCount}/${promptsToProcess.length} image generations (${failedCount} failed to start). Waiting for webhooks...`);
 
   // Update job total to match actually started generations
   if (startedCount > 0) {
