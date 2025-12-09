@@ -409,9 +409,6 @@ export const ProjectConfigurationModal = ({
 
       {step === "prompt-config" && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Ajoutez 2-3 exemples de prompts pour que l'IA comprenne le style souhaité
-          </p>
           {examplePrompts.map((prompt, index) => (
             <div key={index} className="space-y-2">
               <Label>Exemple de prompt {index + 1}</Label>
