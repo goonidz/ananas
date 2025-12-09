@@ -355,6 +355,39 @@ const Index = () => {
     }
   }, [searchParams]);
 
+  // Track if semi-auto mode has been triggered for this session
+  const hasSemiAutoStartedRef = useRef(false);
+
+  // Handle semi-auto mode from URL parameter
+  useEffect(() => {
+    const semiAuto = searchParams.get("semi_auto");
+    const projectId = searchParams.get("project");
+    
+    if (semiAuto === "true" && projectId && scenes.length > 0 && !hasSemiAutoStartedRef.current && !hasActiveJob()) {
+      hasSemiAutoStartedRef.current = true;
+      
+      // Clear the semi_auto param from URL
+      navigate(`/?project=${projectId}`, { replace: true });
+      
+      // Start semi-automatic generation pipeline
+      toast.info("Mode semi-automatique activé. Génération des prompts en cours...");
+      
+      startJob('prompts', { 
+        regenerate: false,
+        semiAutoMode: true
+      }).then((result) => {
+        if (result) {
+          setIsGeneratingPrompts(true);
+        }
+      });
+    }
+  }, [searchParams, scenes, hasActiveJob, navigate, startJob]);
+
+  // Reset semi-auto flag when project changes
+  useEffect(() => {
+    hasSemiAutoStartedRef.current = false;
+  }, [currentProjectId]);
+
   // Load project data when project is selected
   useEffect(() => {
     if (currentProjectId) {
