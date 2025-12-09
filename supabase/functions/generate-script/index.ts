@@ -36,13 +36,13 @@ serve(async (req) => {
       });
     }
 
-    const { topic, style, duration, language = 'fr', customPrompt } = await req.json();
+    const { customPrompt } = await req.json();
 
-    if (!topic) {
-      throw new Error("Topic is required");
+    if (!customPrompt) {
+      throw new Error("Custom prompt is required");
     }
 
-    console.log("Generating script for topic:", topic);
+    console.log("Generating script with custom prompt");
 
     // Get user's Replicate API key from Vault
     const supabaseAdmin = createClient(
@@ -65,42 +65,10 @@ serve(async (req) => {
 
     const replicate = new Replicate({ auth: apiKeyData });
 
-    // Build the prompt for script generation
-    const durationGuide = duration === 'short' 
-      ? "30-60 secondes (environ 100-150 mots)" 
-      : duration === 'medium' 
-        ? "2-3 minutes (environ 300-450 mots)"
-        : "5-7 minutes (environ 750-1000 mots)";
+    // Use the custom prompt directly as the user prompt
+    const systemPrompt = `Tu es un assistant d'écriture professionnel. Tu génères exactement ce que l'utilisateur demande, sans commentaires ni explications supplémentaires. Réponds uniquement avec le contenu demandé.`;
 
-    const styleGuide = style === 'educational' 
-      ? "éducatif et informatif, avec des explications claires"
-      : style === 'entertaining'
-        ? "divertissant et engageant, avec de l'humour"
-        : style === 'dramatic'
-          ? "dramatique et captivant, avec du suspense"
-          : "naturel et conversationnel";
-
-    // Use custom prompt if provided, otherwise use default
-    const basePrompt = customPrompt || `Tu es un scénariste professionnel pour vidéos YouTube. Tu écris des scripts captivants et optimisés pour la narration vocale.
-
-RÈGLES IMPORTANTES:
-- Écris UNIQUEMENT le texte qui sera lu à voix haute
-- PAS de directions de scène, PAS de [crochets], PAS d'annotations
-- Utilise un langage naturel et fluide pour la narration
-- Inclus des pauses naturelles avec des phrases courtes
-- Commence par un hook accrocheur
-- Termine par un appel à l'action ou une conclusion mémorable`;
-
-    const systemPrompt = `${basePrompt}
-
-PARAMÈTRES DE GÉNÉRATION:
-- Durée cible: ${durationGuide}
-- Style: ${styleGuide}
-- Langue: ${language === 'fr' ? 'Français' : 'English'}`;
-
-    const userPrompt = `Écris un script vidéo sur le sujet suivant: "${topic}"
-
-Le script doit être prêt à être lu directement par une voix de synthèse, sans aucune annotation ou direction.`;
+    const userPrompt = customPrompt;
 
     console.log("Calling Claude via Replicate...");
 
