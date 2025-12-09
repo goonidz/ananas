@@ -1295,9 +1295,22 @@ async function processThumbnailsJob(
         filePrefix: `thumb_v${index + 1}`,
       };
 
-      // Add character reference if provided (not style examples)
+      // Combine style examples AND character reference for image generation
+      // Style examples help SeedDream understand the visual style
+      const allImageRefs: string[] = [];
+      
+      // Add style example images first
+      if (exampleUrls && Array.isArray(exampleUrls)) {
+        allImageRefs.push(...exampleUrls);
+      }
+      
+      // Add character reference last (so it's prioritized for face)
       if (characterRefUrl) {
-        requestBody.image_urls = [characterRefUrl];
+        allImageRefs.push(characterRefUrl);
+      }
+      
+      if (allImageRefs.length > 0) {
+        requestBody.image_urls = allImageRefs;
       }
 
       // Start async generation
