@@ -56,16 +56,7 @@ const MINIMAX_EMOTIONS = [
   { id: "surprised", name: "Surpris" },
 ];
 
-const ELEVENLABS_VOICE_OPTIONS = [
-  { id: "daniel", name: "Daniel", language: "fr" },
-  { id: "charlotte", name: "Charlotte", language: "fr" },
-  { id: "aria", name: "Aria", language: "en" },
-  { id: "roger", name: "Roger", language: "en" },
-  { id: "sarah", name: "Sarah", language: "en" },
-  { id: "charlie", name: "Charlie", language: "en" },
-  { id: "george", name: "George", language: "en" },
-  { id: "brian", name: "Brian", language: "en" },
-];
+// ElevenLabs removed - MiniMax only
 
 // Official MiniMax voice IDs from API documentation
 const MINIMAX_VOICE_OPTIONS = [
@@ -236,8 +227,8 @@ const CreateFromScratch = () => {
   const [estimatedDuration, setEstimatedDuration] = useState(0);
   
   // Audio step
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "minimax">("elevenlabs");
-  const [selectedVoice, setSelectedVoice] = useState("daniel");
+  const [ttsProvider] = useState<"minimax">("minimax");
+  const [selectedVoice, setSelectedVoice] = useState("English_expressive_narrator");
   const [minimaxModel, setMinimaxModel] = useState("speech-2.6-hd");
   const [minimaxSpeed, setMinimaxSpeed] = useState(1.0);
   const [minimaxPitch, setMinimaxPitch] = useState(0);
@@ -502,7 +493,11 @@ const CreateFromScratch = () => {
   const handleLoadTtsPreset = (presetId: string) => {
     const preset = ttsPresets.find(p => p.id === presetId);
     if (preset) {
-      setTtsProvider(preset.provider as "elevenlabs" | "minimax");
+      // Only load MiniMax presets (ElevenLabs removed)
+      if (preset.provider !== "minimax") {
+        toast.error("Ce preset utilise un fournisseur non supporté");
+        return;
+      }
       setSelectedVoice(preset.voice_id);
       if (preset.model) setMinimaxModel(preset.model);
       setMinimaxSpeed(preset.speed);
@@ -584,8 +579,11 @@ const CreateFromScratch = () => {
     if (!preset) return;
     setEditingTtsPresetId(presetId);
     setEditTtsPresetName(preset.name);
-    // Load preset values into current state for editing
-    setTtsProvider(preset.provider as "elevenlabs" | "minimax");
+    // Load preset values into current state for editing (MiniMax only)
+    if (preset.provider !== "minimax") {
+      toast.error("Ce preset utilise un fournisseur non supporté");
+      return;
+    }
     setSelectedVoice(preset.voice_id);
     if (preset.model) setMinimaxModel(preset.model);
     setMinimaxSpeed(preset.speed);
@@ -1475,29 +1473,13 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <Label>Fournisseur TTS</Label>
-                  <Select 
-                    value={ttsProvider} 
-                    onValueChange={(v: "elevenlabs" | "minimax") => {
-                      setTtsProvider(v);
-                      setSelectedVoice(v === "elevenlabs" ? "daniel" : "English_expressive_narrator");
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="elevenlabs">ElevenLabs (via Replicate)</SelectItem>
-                      <SelectItem value="minimax">MiniMax (API Officielle)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium">Fournisseur TTS</p>
+                  <p className="text-sm text-muted-foreground">MiniMax (API Officielle)</p>
                 </div>
 
-                {ttsProvider === "minimax" && (
-                  <>
-                    <div className="space-y-4">
-                      <Label>Modèle MiniMax</Label>
+                <div className="space-y-4">
+                  <Label>Modèle MiniMax</Label>
                       <Select value={minimaxModel} onValueChange={setMinimaxModel}>
                         <SelectTrigger>
                           <SelectValue />
@@ -1619,8 +1601,6 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                         </SelectContent>
                       </Select>
                     </div>
-                  </>
-                )}
 
                 <div className="space-y-4">
                   <Label>Voix pour l'audio</Label>
@@ -1629,7 +1609,7 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(ttsProvider === "elevenlabs" ? ELEVENLABS_VOICE_OPTIONS : MINIMAX_VOICE_OPTIONS).map((voice) => (
+                      {MINIMAX_VOICE_OPTIONS.map((voice) => (
                         <SelectItem key={voice.id} value={voice.id}>
                           {voice.name} ({voice.language.toUpperCase()})
                         </SelectItem>
@@ -1660,7 +1640,7 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                     ) : (
                       <>
                         <Mic className="mr-2 h-4 w-4" />
-                        Générer l'audio avec {ttsProvider === "elevenlabs" ? "ElevenLabs" : "MiniMax"}
+                        Générer l'audio avec MiniMax
                       </>
                     )}
                   </Button>
@@ -1875,21 +1855,9 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fournisseur</Label>
-                <Select 
-                  value={ttsProvider} 
-                  onValueChange={(v: "elevenlabs" | "minimax") => {
-                    setTtsProvider(v);
-                    setSelectedVoice(v === "elevenlabs" ? "daniel" : "English_expressive_narrator");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
-                    <SelectItem value="minimax">MiniMax</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium">Fournisseur: MiniMax (API Officielle)</p>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Voix</Label>
@@ -1898,7 +1866,7 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(ttsProvider === "elevenlabs" ? ELEVENLABS_VOICE_OPTIONS : MINIMAX_VOICE_OPTIONS).map((voice) => (
+                    {MINIMAX_VOICE_OPTIONS.map((voice) => (
                       <SelectItem key={voice.id} value={voice.id}>
                         {voice.name} ({voice.language.toUpperCase()})
                       </SelectItem>
