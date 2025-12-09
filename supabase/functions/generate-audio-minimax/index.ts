@@ -47,6 +47,7 @@ serve(async (req) => {
       pitch = 0,
       volume = 1.0,
       languageBoost = 'auto',
+      englishNormalization = true,
       projectId 
     } = await req.json();
 
@@ -84,12 +85,12 @@ serve(async (req) => {
     // Choose between sync and async API based on text length
     if (script.length > ASYNC_TEXT_THRESHOLD) {
       console.log("Using async API for long text (", script.length, "chars)");
-      const result = await generateAudioAsync(apiKeyData, script, model, voiceId, speed, volume, pitch, languageBoost);
+      const result = await generateAudioAsync(apiKeyData, script, model, voiceId, speed, volume, pitch, languageBoost, englishNormalization);
       audioBytes = result.audioBytes;
       audioDuration = result.duration;
     } else {
       console.log("Using sync API for short text (", script.length, "chars)");
-      const result = await generateAudioSync(apiKeyData, script, model, voiceId, speed, volume, pitch, languageBoost);
+      const result = await generateAudioSync(apiKeyData, script, model, voiceId, speed, volume, pitch, languageBoost, englishNormalization);
       audioBytes = result.audioBytes;
       audioDuration = result.duration;
     }
@@ -146,7 +147,8 @@ async function generateAudioSync(
   speed: number,
   volume: number,
   pitch: number,
-  languageBoost: string
+  languageBoost: string,
+  englishNormalization: boolean = true
 ): Promise<{ audioBytes: Uint8Array; duration: number }> {
   const ttsResponse = await fetch(
     'https://api.minimax.io/v1/t2a_v2',
@@ -167,6 +169,7 @@ async function generateAudioSync(
           speed: speed,
           vol: volume,
           pitch: pitch,
+          english_normalization: englishNormalization,
         },
         audio_setting: {
           sample_rate: 32000,
@@ -214,7 +217,8 @@ async function generateAudioAsync(
   speed: number,
   volume: number,
   pitch: number,
-  languageBoost: string
+  languageBoost: string,
+  englishNormalization: boolean = true
 ): Promise<{ audioBytes: Uint8Array; duration: number }> {
   // Step 1: Create async task
   console.log("Creating async TTS task...");
@@ -235,6 +239,7 @@ async function generateAudioAsync(
           speed: speed,
           vol: volume,
           pitch: pitch,
+          english_normalization: englishNormalization,
         },
         audio_setting: {
           audio_sample_rate: 32000,

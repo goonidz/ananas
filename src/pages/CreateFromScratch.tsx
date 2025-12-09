@@ -47,6 +47,8 @@ const ELEVENLABS_VOICE_OPTIONS = [
 const MINIMAX_VOICE_OPTIONS = [
   // English voices
   { id: "English_expressive_narrator", name: "Expressive Narrator", language: "en" },
+  { id: "Insightful_speaker", name: "Insightful Speaker", language: "en" },
+  { id: "Wise_Woman", name: "Wise Woman", language: "en" },
   { id: "English_radiant_girl", name: "Radiant Girl", language: "en" },
   { id: "English_magnetic_voiced_man", name: "Magnetic-voiced Male", language: "en" },
   { id: "English_compelling_lady1", name: "Compelling Lady", language: "en" },
@@ -217,6 +219,7 @@ const CreateFromScratch = () => {
   const [minimaxPitch, setMinimaxPitch] = useState(0);
   const [minimaxVolume, setMinimaxVolume] = useState(1.0);
   const [minimaxLanguageBoost, setMinimaxLanguageBoost] = useState("auto");
+  const [minimaxEnglishNormalization, setMinimaxEnglishNormalization] = useState(true);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
   
@@ -704,6 +707,7 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
             pitch: minimaxPitch,
             volume: minimaxVolume,
             languageBoost: minimaxLanguageBoost,
+            englishNormalization: minimaxEnglishNormalization,
             projectId 
           }
         : { script: generatedScript, voice: selectedVoice, projectId };
@@ -1204,6 +1208,21 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                           <span>100%</span>
                         </div>
                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Normalisation des nombres</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Améliore la lecture des nombres, dates et unités
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={minimaxEnglishNormalization}
+                        onChange={(e) => setMinimaxEnglishNormalization(e.target.checked)}
+                        className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
                     </div>
                   </>
                 )}
