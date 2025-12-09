@@ -277,6 +277,14 @@ async function processJob(
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Check if this is webhook mode - job should stay in processing, not fail
+    if (errorMessage === 'WEBHOOK_MODE_ACTIVE') {
+      console.log(`Job ${jobId} is in webhook mode - staying in processing status`);
+      // Don't mark as completed or failed - webhook will handle it
+      return;
+    }
+    
     const isCpuTimeout = errorMessage.includes('CPU') || errorMessage.includes('timeout') || errorMessage.includes('time limit') || errorMessage.includes('CPU_TIMEOUT_PREEMPTIVE');
     
     console.error(`Job ${jobId} failed:`, error);
@@ -571,6 +579,13 @@ async function processChainedJob(
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Check if this is webhook mode - job should stay in processing
+    if (errorMessage === 'WEBHOOK_MODE_ACTIVE') {
+      console.log(`Chained job ${jobId} is in webhook mode - staying in processing status`);
+      return;
+    }
+    
     const isCpuTimeout = errorMessage.includes('CPU') || errorMessage.includes('timeout') || errorMessage.includes('time limit') || errorMessage.includes('CPU_TIMEOUT_PREEMPTIVE');
     
     console.error(`Chained job ${jobId} failed:`, error);
@@ -1611,7 +1626,7 @@ async function processSingleImageJob(
     .eq('id', jobId);
 }
 
-// Process thumbnails job - generates 3 thumbnail variations in background
+// Process thumbnails job - generates 3 thumbnail variations using webhooks (non-blocking)
 async function processThumbnailsJob(
   jobId: string,
   projectId: string,
@@ -1621,6 +1636,7 @@ async function processThumbnailsJob(
   adminClient: any
 ) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const useWebhook = metadata.useWebhook !== false; // Default to webhook mode
   
   // Get required data from metadata
   const {
@@ -1638,7 +1654,7 @@ async function processThumbnailsJob(
     throw new Error("Missing required thumbnail data in metadata");
   }
 
-  console.log(`Starting thumbnails generation for project ${projectId}`);
+  console.log(`Starting thumbnails generation for project ${projectId}, webhook mode: ${useWebhook}`);
 
   // Step 1: Generate prompts with Gemini
   const promptsResponse = await fetch(`${supabaseUrl}/functions/v1/generate-thumbnail-prompts`, {
@@ -1684,11 +1700,13 @@ async function processThumbnailsJob(
     })
     .eq('id', jobId);
 
-  // Step 2: Generate images in parallel
-  const successfulThumbnails: { index: number; url: string; prompt: string }[] = [];
-  let completedCount = 0;
+  // Build webhook URL
+  const webhookUrl = `${supabaseUrl}/functions/v1/replicate-webhook`;
 
-  const generateThumbnail = async (prompt: string, index: number): Promise<void> => {
+  // Step 2: Start all 3 generations with webhooks (non-blocking)
+  for (let i = 0; i < 3; i++) {
+    const prompt = creativePrompts[i];
+    
     try {
       const requestBody: any = {
         prompt,
@@ -1696,25 +1714,17 @@ async function processThumbnailsJob(
         height: 1080,
         model: imageModel || 'seedream-4.5',
         async: true,
-        uploadToStorage: true,
-        storageFolder: `thumbnails/generated/${projectId}`,
-        filePrefix: `thumb_v${index + 1}`,
+        webhook_url: webhookUrl,
       };
 
-      // Combine style examples AND character reference for image generation
-      // Style examples help SeedDream understand the visual style
+      // Combine style examples AND character reference
       const allImageRefs: string[] = [];
-      
-      // Add style example images first
       if (exampleUrls && Array.isArray(exampleUrls)) {
         allImageRefs.push(...exampleUrls);
       }
-      
-      // Add character reference last (so it's prioritized for face)
       if (characterRefUrl) {
         allImageRefs.push(characterRefUrl);
       }
-      
       if (allImageRefs.length > 0) {
         requestBody.image_urls = allImageRefs;
       }
@@ -1730,130 +1740,47 @@ async function processThumbnailsJob(
       });
 
       if (!startResponse.ok) {
-        throw new Error(`Failed to start thumbnail generation: ${startResponse.status}`);
+        console.error(`Failed to start thumbnail ${i + 1}: ${startResponse.status}`);
+        continue;
       }
 
       const startData = await startResponse.json();
       const predictionId = startData.predictionId;
 
       if (!predictionId) {
-        throw new Error("No prediction ID returned");
+        console.error(`No prediction ID for thumbnail ${i + 1}`);
+        continue;
       }
 
-      // Poll for completion
-      let thumbnailUrl = null;
-      const maxWaitMs = 600000; // 10 minutes
-      const pollIntervalMs = 2000; // Poll every 2 seconds (reduced from 3)
-      const startTime = Date.now();
-      let isFirstPoll = true;
-
-      while (Date.now() - startTime < maxWaitMs) {
-        // Only wait before polling if not the first check
-        if (!isFirstPoll) {
-          await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
-        }
-        isFirstPoll = false;
-
-        const statusResponse = await fetch(`${supabaseUrl}/functions/v1/generate-image-seedream`, {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ predictionId }),
+      // Save to pending_predictions table
+      const { error: insertError } = await adminClient
+        .from('pending_predictions')
+        .insert({
+          job_id: jobId,
+          prediction_id: predictionId,
+          prediction_type: 'thumbnail',
+          thumbnail_index: i,
+          project_id: projectId,
+          user_id: userId,
+          metadata: { prompt },
+          status: 'pending'
         });
 
-        if (!statusResponse.ok) continue;
-
-        const statusData = await statusResponse.json();
-
-        if (statusData.status === 'succeeded') {
-          const output = Array.isArray(statusData.output) ? statusData.output[0] : statusData.output;
-          if (output) {
-            // Download and upload to Supabase storage
-            const imageResponse = await fetch(output);
-            if (imageResponse.ok) {
-              const blob = await imageResponse.blob();
-              const timestamp = Date.now();
-              const filename = `${projectId}/thumb_v${index + 1}_${timestamp}.jpg`;
-
-              const { error: uploadError } = await adminClient.storage
-                .from('generated-images')
-                .upload(filename, blob, {
-                  contentType: 'image/jpeg',
-                  upsert: true
-                });
-
-              if (!uploadError) {
-                const { data: { publicUrl } } = adminClient.storage
-                  .from('generated-images')
-                  .getPublicUrl(filename);
-                
-                thumbnailUrl = publicUrl;
-              }
-            }
-          }
-          break;
-        }
-
-        if (statusData.status === 'failed' || statusData.status === 'canceled') {
-          throw new Error(`Thumbnail generation ${statusData.status}`);
-        }
-      }
-
-      if (thumbnailUrl) {
-        successfulThumbnails.push({ index, url: thumbnailUrl, prompt });
-        completedCount++;
-        console.log(`Thumbnail ${index + 1} generated successfully`);
-        
-        // Update progress AND metadata with current thumbnails (for progressive display)
-        const currentThumbnails = [...successfulThumbnails].sort((a, b) => a.index - b.index);
-        await adminClient
-          .from('generation_jobs')
-          .update({ 
-            progress: completedCount,
-            metadata: {
-              ...metadata,
-              generatedPrompts: creativePrompts,
-              generatedThumbnails: currentThumbnails.map(t => ({ url: t.url, prompt: t.prompt, index: t.index }))
-            }
-          })
-          .eq('id', jobId);
+      if (insertError) {
+        console.error(`Error saving prediction ${predictionId}:`, insertError);
       } else {
-        throw new Error("Thumbnail generation timed out");
+        console.log(`Thumbnail ${i + 1} started: ${predictionId}`);
       }
+
     } catch (error) {
-      console.error(`Failed to generate thumbnail ${index + 1}:`, error);
-      // Don't throw - allow other thumbnails to complete
-    }
-  };
-
-  // Generate all 3 in parallel
-  await Promise.all(creativePrompts.map((prompt, i) => generateThumbnail(prompt, i)));
-
-  // Save to generated_thumbnails table
-  if (successfulThumbnails.length > 0) {
-    successfulThumbnails.sort((a, b) => a.index - b.index);
-    
-    const { error: saveError } = await adminClient
-      .from('generated_thumbnails')
-      .insert({
-        project_id: projectId,
-        user_id: userId,
-        thumbnail_urls: successfulThumbnails.map(t => t.url),
-        prompts: successfulThumbnails.map(t => t.prompt),
-      });
-
-    if (saveError) {
-      console.error("Error saving thumbnails to history:", saveError);
-    } else {
-      console.log(`Saved ${successfulThumbnails.length} thumbnails to history`);
+      console.error(`Error starting thumbnail ${i + 1}:`, error);
     }
   }
 
-  if (successfulThumbnails.length === 0) {
-    throw new Error("All thumbnail generations failed");
-  }
-
-  console.log(`Thumbnails job completed: ${successfulThumbnails.length}/3 generated`);
+  // Job stays in 'processing' status - the webhook will mark it complete
+  // Do NOT mark as completed here - that's the webhook's job
+  console.log(`Thumbnail generations started. Waiting for webhooks...`);
+  
+  // Throw a special marker to prevent the job from being marked complete by processJob
+  throw new Error("WEBHOOK_MODE_ACTIVE");
 }

@@ -388,7 +388,7 @@ const Index = () => {
   useEffect(() => {
     if (!currentProjectId) return;
 
-    let lastPromptsHash = JSON.stringify(generatedPrompts.map(p => p.imageUrl));
+    let lastPromptsHash = JSON.stringify(generatedPrompts.map(p => p?.imageUrl || null));
 
     const pollInterval = setInterval(async () => {
       try {
@@ -400,7 +400,8 @@ const Index = () => {
 
         if (projectData?.prompts) {
           const newPrompts = projectData.prompts as unknown as GeneratedPrompt[];
-          const newHash = JSON.stringify(newPrompts.map(p => p.imageUrl));
+          // Filter out null/undefined entries and safely access imageUrl
+          const newHash = JSON.stringify(newPrompts.map(p => p?.imageUrl || null));
           
           if (newHash !== lastPromptsHash) {
             console.log('Images updated, refreshing UI');
