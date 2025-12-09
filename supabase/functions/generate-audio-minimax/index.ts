@@ -6,8 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// MiniMax uses voice_id directly - no mapping needed
-// The frontend sends the exact voice_id from the official list
+// Text length threshold for switching to async API (in characters)
+// MiniMax t2a_v2 has a limit around 5000 chars, use async for longer texts
+const ASYNC_TEXT_THRESHOLD = 4000;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -40,7 +41,7 @@ serve(async (req) => {
 
     const { 
       script, 
-      voice = 'english_expressive_narrator', 
+      voice = 'English_expressive_narrator', 
       model = 'speech-2.6-hd', 
       speed = 1.0,
       pitch = 0,
@@ -74,65 +75,26 @@ serve(async (req) => {
       );
     }
 
-    // Use voice directly as voice_id - frontend sends exact MiniMax voice IDs
     const voiceId = voice || "English_expressive_narrator";
-
     console.log("Calling MiniMax TTS with voice:", voice, "voiceId:", voiceId, "model:", model);
 
-    // Call MiniMax TTS API
-    const ttsResponse = await fetch(
-      'https://api.minimax.io/v1/t2a_v2',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKeyData}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: model, // 'speech-2.6-hd' or 'speech-2.6-turbo'
-          text: script,
-          stream: false,
-          language_boost: languageBoost,
-          output_format: "hex",
-          voice_setting: {
-            voice_id: voiceId,
-            speed: speed,
-            vol: volume,
-            pitch: pitch,
-          },
-          audio_setting: {
-            sample_rate: 32000,
-            bitrate: 128000,
-            format: "mp3",
-            channel: 1,
-          },
-        }),
-      }
-    );
+    let audioBytes: Uint8Array;
+    let audioDuration: number;
 
-    if (!ttsResponse.ok) {
-      const errorText = await ttsResponse.text();
-      console.error("MiniMax API error:", ttsResponse.status, errorText);
-      throw new Error(`MiniMax API error: ${ttsResponse.status}`);
-    }
-
-    const result = await ttsResponse.json();
-    
-    if (result.base_resp?.status_code !== 0) {
-      console.error("MiniMax API error:", result.base_resp);
-      throw new Error(`MiniMax API error: ${result.base_resp?.status_msg || 'Unknown error'}`);
+    // Choose between sync and async API based on text length
+    if (script.length > ASYNC_TEXT_THRESHOLD) {
+      console.log("Using async API for long text (", script.length, "chars)");
+      const result = await generateAudioAsync(apiKeyData, script, model, voiceId, speed, volume, pitch, languageBoost);
+      audioBytes = result.audioBytes;
+      audioDuration = result.duration;
+    } else {
+      console.log("Using sync API for short text (", script.length, "chars)");
+      const result = await generateAudioSync(apiKeyData, script, model, voiceId, speed, volume, pitch, languageBoost);
+      audioBytes = result.audioBytes;
+      audioDuration = result.duration;
     }
 
     console.log("Audio generated, uploading to storage...");
-
-    // Decode hex audio to binary
-    const hexAudio = result.data?.audio;
-    if (!hexAudio) {
-      throw new Error("No audio data in response");
-    }
-
-    // Convert hex string to Uint8Array
-    const audioBytes = new Uint8Array(hexAudio.match(/.{1,2}/g).map((byte: string) => parseInt(byte, 16)));
 
     // Generate unique filename
     const timestamp = Date.now();
@@ -158,11 +120,6 @@ serve(async (req) => {
 
     console.log("Audio uploaded to:", publicUrl);
 
-    // Calculate duration from API response
-    const audioDuration = result.extra_info?.audio_length 
-      ? Math.round(result.extra_info.audio_length / 1000) 
-      : Math.round(script.split(/\s+/).length / 2.5);
-
     return new Response(
       JSON.stringify({ 
         audioUrl: publicUrl,
@@ -179,3 +136,205 @@ serve(async (req) => {
     );
   }
 });
+
+// Synchronous API for shorter texts (< 4000 chars)
+async function generateAudioSync(
+  apiKey: string,
+  text: string,
+  model: string,
+  voiceId: string,
+  speed: number,
+  volume: number,
+  pitch: number,
+  languageBoost: string
+): Promise<{ audioBytes: Uint8Array; duration: number }> {
+  const ttsResponse = await fetch(
+    'https://api.minimax.io/v1/t2a_v2',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        text: text,
+        stream: false,
+        language_boost: languageBoost,
+        output_format: "hex",
+        voice_setting: {
+          voice_id: voiceId,
+          speed: speed,
+          vol: volume,
+          pitch: pitch,
+        },
+        audio_setting: {
+          sample_rate: 32000,
+          bitrate: 128000,
+          format: "mp3",
+          channel: 1,
+        },
+      }),
+    }
+  );
+
+  if (!ttsResponse.ok) {
+    const errorText = await ttsResponse.text();
+    console.error("MiniMax API error:", ttsResponse.status, errorText);
+    throw new Error(`MiniMax API error: ${ttsResponse.status}`);
+  }
+
+  const result = await ttsResponse.json();
+  
+  if (result.base_resp?.status_code !== 0) {
+    console.error("MiniMax API error:", result.base_resp);
+    throw new Error(`MiniMax API error: ${result.base_resp?.status_msg || 'Unknown error'}`);
+  }
+
+  const hexAudio = result.data?.audio;
+  if (!hexAudio) {
+    throw new Error("No audio data in response");
+  }
+
+  const audioBytes = new Uint8Array(hexAudio.match(/.{1,2}/g).map((byte: string) => parseInt(byte, 16)));
+  
+  const duration = result.extra_info?.audio_length 
+    ? Math.round(result.extra_info.audio_length / 1000) 
+    : Math.round(text.split(/\s+/).length / 2.5);
+
+  return { audioBytes, duration };
+}
+
+// Asynchronous API for longer texts (>= 4000 chars)
+async function generateAudioAsync(
+  apiKey: string,
+  text: string,
+  model: string,
+  voiceId: string,
+  speed: number,
+  volume: number,
+  pitch: number,
+  languageBoost: string
+): Promise<{ audioBytes: Uint8Array; duration: number }> {
+  // Step 1: Create async task
+  console.log("Creating async TTS task...");
+  const createResponse = await fetch(
+    'https://api.minimax.io/v1/t2a_async_v2',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        text: text,
+        language_boost: languageBoost,
+        voice_setting: {
+          voice_id: voiceId,
+          speed: speed,
+          vol: volume,
+          pitch: pitch,
+        },
+        audio_setting: {
+          audio_sample_rate: 32000,
+          bitrate: 128000,
+          format: "mp3",
+          channel: 1,
+        },
+      }),
+    }
+  );
+
+  if (!createResponse.ok) {
+    const errorText = await createResponse.text();
+    console.error("MiniMax async create error:", createResponse.status, errorText);
+    throw new Error(`MiniMax async API error: ${createResponse.status}`);
+  }
+
+  const createResult = await createResponse.json();
+  console.log("Async task create response:", JSON.stringify(createResult));
+
+  if (createResult.base_resp?.status_code !== 0) {
+    console.error("MiniMax async create error:", createResult.base_resp);
+    throw new Error(`MiniMax async API error: ${createResult.base_resp?.status_msg || 'Unknown error'}`);
+  }
+
+  const taskId = createResult.task_id;
+  if (!taskId) {
+    throw new Error("No task_id in async response");
+  }
+
+  console.log("Async task created with ID:", taskId);
+
+  // Step 2: Poll for task completion
+  const maxAttempts = 120; // 10 minutes max (5 sec intervals)
+  const pollInterval = 5000; // 5 seconds
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+    console.log(`Polling task status (attempt ${attempt + 1}/${maxAttempts})...`);
+
+    const statusResponse = await fetch(
+      `https://api.minimax.io/v1/query/t2a_async_v2?task_id=${taskId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      }
+    );
+
+    if (!statusResponse.ok) {
+      console.error("Status poll error:", statusResponse.status);
+      continue;
+    }
+
+    const statusResult = await statusResponse.json();
+    console.log("Task status:", statusResult.status);
+
+    if (statusResult.base_resp?.status_code !== 0) {
+      console.error("Status poll API error:", statusResult.base_resp);
+      throw new Error(`Status poll error: ${statusResult.base_resp?.status_msg || 'Unknown error'}`);
+    }
+
+    // Check task status
+    // Status: 0 = preparing, 1 = running, 2 = success, 3 = failed
+    if (statusResult.status === 2) {
+      // Success - download audio
+      const audioUrl = statusResult.file_url || statusResult.audio_file?.download_url;
+      
+      if (!audioUrl) {
+        console.error("No audio URL in completed task:", JSON.stringify(statusResult));
+        throw new Error("No audio URL in completed async task");
+      }
+
+      console.log("Downloading audio from:", audioUrl);
+
+      const audioResponse = await fetch(audioUrl);
+      if (!audioResponse.ok) {
+        throw new Error(`Failed to download audio: ${audioResponse.status}`);
+      }
+
+      const audioBuffer = await audioResponse.arrayBuffer();
+      const audioBytes = new Uint8Array(audioBuffer);
+
+      // Estimate duration based on text length
+      const duration = statusResult.extra_info?.audio_length 
+        ? Math.round(statusResult.extra_info.audio_length / 1000) 
+        : Math.round(text.split(/\s+/).length / 2.5);
+
+      console.log("Async audio generation complete, duration:", duration);
+
+      return { audioBytes, duration };
+    } else if (statusResult.status === 3) {
+      // Failed
+      throw new Error(`Async task failed: ${statusResult.error_message || 'Unknown error'}`);
+    }
+
+    // Status 0 or 1 - still processing, continue polling
+  }
+
+  throw new Error("Async task timed out after 10 minutes");
+}
