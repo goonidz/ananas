@@ -15,6 +15,7 @@ const Profile = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [replicateApiKey, setReplicateApiKey] = useState("");
+  const [minimaxApiKey, setMinimaxApiKey] = useState("");
   const [elevenLabsApiKey, setElevenLabsApiKey] = useState("");
 
   useEffect(() => {
@@ -39,21 +40,25 @@ const Profile = () => {
     setIsLoading(true);
     try {
       // Try to get API keys from Vault
-      const { data: replicateKey, error: replicateError } = await supabase
-        .rpc('get_user_api_key', { key_name: 'replicate' });
-      
-      const { data: elevenLabsKey, error: elevenLabsError } = await supabase
-        .rpc('get_user_api_key', { key_name: 'eleven_labs' });
+      const [replicateResult, elevenLabsResult, minimaxResult] = await Promise.all([
+        supabase.rpc('get_user_api_key', { key_name: 'replicate' }),
+        supabase.rpc('get_user_api_key', { key_name: 'eleven_labs' }),
+        supabase.rpc('get_user_api_key', { key_name: 'minimax' }),
+      ]);
 
       // Don't show errors if keys don't exist yet - just leave them empty
-      if (replicateKey) setReplicateApiKey(replicateKey);
-      if (elevenLabsKey) setElevenLabsApiKey(elevenLabsKey);
+      if (replicateResult.data) setReplicateApiKey(replicateResult.data);
+      if (elevenLabsResult.data) setElevenLabsApiKey(elevenLabsResult.data);
+      if (minimaxResult.data) setMinimaxApiKey(minimaxResult.data);
       
-      if (replicateError && !replicateError.message?.includes('not found')) {
-        console.error("Error loading Replicate API key:", replicateError);
+      if (replicateResult.error && !replicateResult.error.message?.includes('not found')) {
+        console.error("Error loading Replicate API key:", replicateResult.error);
       }
-      if (elevenLabsError && !elevenLabsError.message?.includes('not found')) {
-        console.error("Error loading Eleven Labs API key:", elevenLabsError);
+      if (elevenLabsResult.error && !elevenLabsResult.error.message?.includes('not found')) {
+        console.error("Error loading Eleven Labs API key:", elevenLabsResult.error);
+      }
+      if (minimaxResult.error && !minimaxResult.error.message?.includes('not found')) {
+        console.error("Error loading MiniMax API key:", minimaxResult.error);
       }
     } catch (error: any) {
       console.error("Error loading API keys:", error);
@@ -66,7 +71,7 @@ const Profile = () => {
   const handleSave = async () => {
     if (!user) return;
 
-    if (!replicateApiKey.trim() && !elevenLabsApiKey.trim()) {
+    if (!replicateApiKey.trim() && !elevenLabsApiKey.trim() && !minimaxApiKey.trim()) {
       toast.error("Veuillez remplir au moins une clé API");
       return;
     }
@@ -90,6 +95,15 @@ const Profile = () => {
           supabase.rpc('store_user_api_key', {
             key_name: 'eleven_labs',
             key_value: elevenLabsApiKey.trim()
+          })
+        );
+      }
+
+      if (minimaxApiKey.trim()) {
+        promises.push(
+          supabase.rpc('store_user_api_key', {
+            key_name: 'minimax',
+            key_value: minimaxApiKey.trim()
           })
         );
       }
@@ -204,7 +218,6 @@ const Profile = () => {
                   <div className="space-y-2">
                     <Label htmlFor="elevenlabs-key">
                       Eleven Labs API Key
-                      <span className="text-destructive ml-1">*</span>
                     </Label>
                     <Input
                       id="elevenlabs-key"
@@ -214,9 +227,33 @@ const Profile = () => {
                       placeholder="sk_..."
                     />
                     <p className="text-xs text-muted-foreground">
-                      Utilisée pour la transcription audio.{" "}
+                      Utilisée pour la transcription audio et TTS.{" "}
                       <a
                         href="https://elevenlabs.io/app/settings/api-keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Obtenir une clé
+                      </a>
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="minimax-key">
+                      MiniMax API Key
+                    </Label>
+                    <Input
+                      id="minimax-key"
+                      type="password"
+                      value={minimaxApiKey}
+                      onChange={(e) => setMinimaxApiKey(e.target.value)}
+                      placeholder="eyJ..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Utilisée pour la génération vocale TTS.{" "}
+                      <a
+                        href="https://platform.minimax.io/user-center/basic-information/interface-key"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline"
@@ -229,7 +266,7 @@ const Profile = () => {
 
                 <Button
                   onClick={handleSave}
-                  disabled={isSaving || (!replicateApiKey.trim() && !elevenLabsApiKey.trim())}
+                  disabled={isSaving || (!replicateApiKey.trim() && !elevenLabsApiKey.trim() && !minimaxApiKey.trim())}
                   className="w-full"
                   size="lg"
                 >

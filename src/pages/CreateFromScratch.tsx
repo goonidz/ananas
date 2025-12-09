@@ -32,7 +32,7 @@ interface ScriptPreset {
   language: string;
 }
 
-const VOICE_OPTIONS = [
+const ELEVENLABS_VOICE_OPTIONS = [
   { id: "daniel", name: "Daniel", language: "fr" },
   { id: "charlotte", name: "Charlotte", language: "fr" },
   { id: "aria", name: "Aria", language: "en" },
@@ -41,6 +41,20 @@ const VOICE_OPTIONS = [
   { id: "charlie", name: "Charlie", language: "en" },
   { id: "george", name: "George", language: "en" },
   { id: "brian", name: "Brian", language: "en" },
+];
+
+const MINIMAX_VOICE_OPTIONS = [
+  { id: "english_narrator", name: "English Narrator", language: "en" },
+  { id: "english_male", name: "Calm American Man", language: "en" },
+  { id: "english_female", name: "Warm American Woman", language: "en" },
+  { id: "english_british", name: "British Gentleman", language: "en" },
+  { id: "french_male", name: "French Male", language: "fr" },
+  { id: "french_female", name: "French Female", language: "fr" },
+];
+
+const MINIMAX_MODEL_OPTIONS = [
+  { id: "speech-2.6-hd", name: "HD (Haute qualité)" },
+  { id: "speech-2.6-turbo", name: "Turbo (Rapide)" },
 ];
 
 
@@ -87,7 +101,9 @@ const CreateFromScratch = () => {
   const [estimatedDuration, setEstimatedDuration] = useState(0);
   
   // Audio step
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "minimax">("elevenlabs");
   const [selectedVoice, setSelectedVoice] = useState("daniel");
+  const [minimaxModel, setMinimaxModel] = useState("speech-2.6-hd");
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
   
@@ -564,14 +580,13 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
         .update({ name: projectName.trim() })
         .eq("id", projectId);
 
-      // Generate audio
-      const { data, error } = await supabase.functions.invoke('generate-audio-tts', {
-        body: {
-          script: generatedScript,
-          voice: selectedVoice,
-          projectId
-        }
-      });
+      // Generate audio based on provider
+      const functionName = ttsProvider === "minimax" ? "generate-audio-minimax" : "generate-audio-tts";
+      const body = ttsProvider === "minimax" 
+        ? { script: generatedScript, voice: selectedVoice, model: minimaxModel, projectId }
+        : { script: generatedScript, voice: selectedVoice, projectId };
+
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
 
       if (error) throw error;
 
@@ -951,13 +966,50 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                 />
 
                 <div className="space-y-4">
+                  <Label>Fournisseur TTS</Label>
+                  <Select 
+                    value={ttsProvider} 
+                    onValueChange={(v: "elevenlabs" | "minimax") => {
+                      setTtsProvider(v);
+                      setSelectedVoice(v === "elevenlabs" ? "daniel" : "english_narrator");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
+                      <SelectItem value="minimax">MiniMax</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {ttsProvider === "minimax" && (
+                  <div className="space-y-4">
+                    <Label>Modèle MiniMax</Label>
+                    <Select value={minimaxModel} onValueChange={setMinimaxModel}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MINIMAX_MODEL_OPTIONS.map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-4">
                   <Label>Voix pour l'audio</Label>
                   <Select value={selectedVoice} onValueChange={setSelectedVoice}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {VOICE_OPTIONS.map((voice) => (
+                      {(ttsProvider === "elevenlabs" ? ELEVENLABS_VOICE_OPTIONS : MINIMAX_VOICE_OPTIONS).map((voice) => (
                         <SelectItem key={voice.id} value={voice.id}>
                           {voice.name} ({voice.language.toUpperCase()})
                         </SelectItem>
@@ -988,7 +1040,7 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                     ) : (
                       <>
                         <Mic className="mr-2 h-4 w-4" />
-                        Générer l'audio avec ElevenLabs
+                        Générer l'audio avec {ttsProvider === "elevenlabs" ? "ElevenLabs" : "MiniMax"}
                       </>
                     )}
                   </Button>
