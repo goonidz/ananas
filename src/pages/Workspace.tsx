@@ -114,10 +114,10 @@ const Workspace = () => {
     if (!currentProjectId) return;
 
     try {
+      // Note: prompts are NOT saved here - they are managed by the backend job queue
       const { error } = await supabase
         .from("projects")
         .update({
-          prompts: generatedPrompts as any,
           audio_url: audioUrl || null,
         })
         .eq("id", currentProjectId);
@@ -128,16 +128,16 @@ const Workspace = () => {
     }
   };
 
-  // Auto-save
+  // Auto-save (only audio_url, prompts are managed by backend)
   useEffect(() => {
-    if (currentProjectId && generatedPrompts.length > 0) {
+    if (currentProjectId && audioUrl) {
       const timeoutId = setTimeout(() => {
         saveProjectData();
       }, 1000);
 
       return () => clearTimeout(timeoutId);
     }
-  }, [currentProjectId, generatedPrompts, audioUrl]);
+  }, [currentProjectId, audioUrl]);
 
   const handleStartEditName = () => {
     setEditedName(projectName);
