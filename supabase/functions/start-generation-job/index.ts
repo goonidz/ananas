@@ -305,8 +305,8 @@ async function processPromptsJob(
     newPrompts.push(null);
   }
 
-  // Process in batches of 10 (parallel)
-  const batchSize = 10;
+  // Process in batches of 50 (parallel) for faster generation
+  const batchSize = 50;
   let progress = 0;
 
   for (let batchStart = 0; batchStart < scenes.length; batchStart += batchSize) {
