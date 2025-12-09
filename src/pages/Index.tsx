@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle, FileText, ArrowUp, MonitorPlay, Cloud } from "lucide-react";
+import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle, FileText, ArrowUp, MonitorPlay, Cloud, Trash2 } from "lucide-react";
 import { ProjectConfigurationModal } from "@/components/ProjectConfigurationModal";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -1914,6 +1914,33 @@ const Index = () => {
                               Annuler images
                             </Button>
                           )}
+                          {/* TEMPORARY: Delete all images button */}
+                          <Button
+                            onClick={async () => {
+                              if (!currentProjectId || !user) return;
+                              try {
+                                const clearedPrompts = generatedPrompts.map(p => ({
+                                  ...p,
+                                  imageUrl: undefined
+                                }));
+                                const { error } = await supabase
+                                  .from('projects')
+                                  .update({ prompts: clearedPrompts as any })
+                                  .eq('id', currentProjectId);
+                                if (error) throw error;
+                                setGeneratedPrompts(clearedPrompts);
+                                toast.success("Toutes les images ont été supprimées");
+                              } catch (error) {
+                                console.error('Error deleting images:', error);
+                                toast.error("Erreur lors de la suppression des images");
+                              }
+                            }}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Suppr. images
+                          </Button>
                         </div>
                         
                         {/* Jobs en cours */}
