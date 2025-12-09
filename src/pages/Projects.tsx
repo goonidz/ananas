@@ -66,6 +66,7 @@ const Projects = () => {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingProjectName, setEditingProjectName] = useState("");
   const [calendarEntryId, setCalendarEntryId] = useState<string | null>(null);
+  const [semiAutoMode, setSemiAutoMode] = useState(false);
 
   // Job management for background transcription
   const handleTranscriptionComplete = useCallback(async (job: GenerationJob) => {
@@ -353,6 +354,7 @@ const Projects = () => {
     if (!currentProjectId) return;
     
     const projectId = currentProjectId; // Sauvegarder l'ID avant de réinitialiser
+    const shouldSemiAuto = semiAutoMode; // Sauvegarder le mode avant de réinitialiser
     
     setIsCreating(true);
     try {
@@ -390,9 +392,10 @@ const Projects = () => {
       setNewProjectName("");
       setTranscriptData(null);
       setCurrentProjectId(null);
+      setSemiAutoMode(false);
       
       // Naviguer vers le projet APRÈS avoir réinitialisé l'état
-      navigate(`/project?project=${projectId}`);
+      navigate(`/project?project=${projectId}${shouldSemiAuto ? '&semi_auto=true' : ''}`);
     } catch (error: any) {
       console.error("Error saving configuration:", error);
       toast.error("Erreur lors de l'enregistrement");
@@ -1034,6 +1037,28 @@ const Projects = () => {
                         )}
                       </div>
                     </div>
+
+                    {/* Semi-automatic mode option */}
+                    <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="semi-auto-mode-projects"
+                          checked={semiAutoMode}
+                          onChange={(e) => setSemiAutoMode(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="semi-auto-mode-projects" className="font-medium cursor-pointer block">
+                            Mode semi-automatique
+                          </label>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Génère automatiquement tous les prompts, images et miniatures sans intervention manuelle après la configuration.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex justify-between pt-4">
                       <Button variant="outline" onClick={() => setWorkflowStep("prompt-config")}>
                         Précédent
