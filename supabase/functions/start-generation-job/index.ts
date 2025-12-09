@@ -426,8 +426,8 @@ async function processImagesJob(
   let progress = 0;
   const updatedPrompts = [...prompts];
 
-  // Process in batches of 20 for images (to respect rate limits)
-  const batchSize = 20;
+  // Process in batches of 100 for images (parallel)
+  const batchSize = 100;
 
   for (let batchStart = 0; batchStart < promptsToProcess.length; batchStart += batchSize) {
     const batch = promptsToProcess.slice(batchStart, batchStart + batchSize);
