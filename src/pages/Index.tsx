@@ -441,9 +441,23 @@ const Index = () => {
 
   // Track if we've already shown the config modal for this session
   const hasShownConfigModalRef = useRef(false);
+  // Track if project data has been loaded at least once
+  const projectDataLoadedRef = useRef(false);
   
   // Show configuration modal if project has transcript but no scenes (only once per session)
+  // IMPORTANT: Don't show if semi_auto mode is active (user just came from project creation workflow)
   useEffect(() => {
+    const semiAuto = searchParams.get("semi_auto");
+    
+    // Don't show modal if semi_auto mode is active - user already configured in the creation workflow
+    if (semiAuto === "true") {
+      hasShownConfigModalRef.current = true;
+      return;
+    }
+    
+    // Only show modal after project data has been loaded at least once
+    if (!projectDataLoadedRef.current) return;
+    
     if (transcriptData && scenes.length === 0 && currentProjectId && !hasActiveJob('transcription') && !hasShownConfigModalRef.current) {
       // Small delay to allow UI to settle
       const timer = setTimeout(() => {
@@ -452,11 +466,12 @@ const Index = () => {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [transcriptData, scenes, currentProjectId, hasActiveJob]);
+  }, [transcriptData, scenes, currentProjectId, hasActiveJob, searchParams]);
   
   // Reset the flag when project changes
   useEffect(() => {
     hasShownConfigModalRef.current = false;
+    projectDataLoadedRef.current = false;
   }, [currentProjectId]);
 
   const loadProjectData = async (projectId: string) => {
@@ -514,6 +529,9 @@ const Index = () => {
       if (data.audio_url) {
         setAudioUrl(data.audio_url);
       }
+      
+      // Mark that project data has been loaded
+      projectDataLoadedRef.current = true;
     } catch (error: any) {
       console.error("Error loading project:", error);
       toast.error("Erreur lors du chargement du projet");
