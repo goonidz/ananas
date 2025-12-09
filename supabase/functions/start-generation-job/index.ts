@@ -860,7 +860,7 @@ async function processImagesJob(
   const webhookUrl = `${supabaseUrl}/functions/v1/replicate-webhook`;
 
   // Batch settings to avoid "Queue is full" errors from Replicate
-  const BATCH_SIZE = 10; // Send 10 images at a time
+  const BATCH_SIZE = 5; // Send 5 images at a time
   const DELAY_BETWEEN_BATCHES_MS = 3000; // 3 seconds between batches
   const DELAY_BETWEEN_REQUESTS_MS = 200; // 200ms between individual requests in a batch
 
