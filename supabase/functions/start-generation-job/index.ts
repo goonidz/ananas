@@ -243,16 +243,136 @@ async function processJob(
     }
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isCpuTimeout = errorMessage.includes('CPU') || errorMessage.includes('timeout') || errorMessage.includes('time limit');
+    
     console.error(`Job ${jobId} failed:`, error);
     
-    await adminClient
+    // Get current job progress before marking as failed
+    const { data: currentJob } = await adminClient
       .from('generation_jobs')
-      .update({ 
-        status: 'failed',
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-        completed_at: new Date().toISOString()
+      .select('progress, total, job_type')
+      .eq('id', jobId)
+      .single();
+    
+    const progress = currentJob?.progress || 0;
+    const total = currentJob?.total || 0;
+    const currentJobType = currentJob?.job_type || jobType;
+    
+    // Check if this is a CPU timeout and there's still work to do
+    const hasRemainingWork = progress < total;
+    const shouldContinue = isCpuTimeout && hasRemainingWork && (currentJobType === 'images' || currentJobType === 'prompts');
+    
+    if (shouldContinue) {
+      console.log(`CPU timeout detected for job ${jobId}. Progress: ${progress}/${total}. Creating continuation job...`);
+      
+      // Mark current job as completed (partial success)
+      await adminClient
+        .from('generation_jobs')
+        .update({ 
+          status: 'completed',
+          error_message: `CPU timeout après ${progress}/${total}. Job de continuation créé automatiquement.`,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+      
+      // Create continuation job
+      await createContinuationJob(projectId, userId, currentJobType, metadata, authHeader, adminClient);
+    } else {
+      // Regular failure - no continuation
+      await adminClient
+        .from('generation_jobs')
+        .update({ 
+          status: 'failed',
+          error_message: errorMessage,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+    }
+  }
+}
+
+// Create a continuation job to resume work after a timeout
+async function createContinuationJob(
+  projectId: string,
+  userId: string,
+  jobType: string,
+  originalMetadata: Record<string, any>,
+  authHeader: string,
+  adminClient: any
+) {
+  try {
+    // Get fresh project data
+    const { data: project } = await adminClient
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .single();
+      
+    if (!project) {
+      console.error(`Project ${projectId} not found for continuation job`);
+      return;
+    }
+    
+    // Calculate remaining work
+    let total = 0;
+    if (jobType === 'images') {
+      const prompts = (project.prompts as any[]) || [];
+      total = prompts.filter((p: any) => p && !p.imageUrl).length;
+    } else if (jobType === 'prompts') {
+      const scenes = (project.scenes as any[]) || [];
+      const prompts = (project.prompts as any[]) || [];
+      // Count scenes without prompts
+      total = scenes.length - prompts.filter((p: any) => p && p.text).length;
+    }
+    
+    if (total <= 0) {
+      console.log(`No remaining work for continuation job on project ${projectId}`);
+      return;
+    }
+    
+    console.log(`Creating continuation job for ${jobType}: ${total} items remaining`);
+    
+    // Create continuation job with skipExisting
+    const { data: continuationJob, error: jobError } = await adminClient
+      .from('generation_jobs')
+      .insert({
+        project_id: projectId,
+        user_id: userId,
+        job_type: jobType,
+        status: 'pending',
+        progress: 0,
+        total,
+        metadata: {
+          ...originalMetadata,
+          skipExisting: true,
+          isContinuation: true,
+          started_at: new Date().toISOString(),
+        }
       })
-      .eq('id', jobId);
+      .select()
+      .single();
+      
+    if (jobError) {
+      console.error(`Error creating continuation job:`, jobError);
+      return;
+    }
+    
+    console.log(`Created continuation job ${continuationJob.id} for ${jobType}`);
+    
+    // Start the continuation job
+    EdgeRuntime.waitUntil(processChainedJob(
+      continuationJob.id, 
+      projectId, 
+      jobType, 
+      userId, 
+      { ...originalMetadata, skipExisting: true, isContinuation: true }, 
+      authHeader, 
+      adminClient
+    ));
+    
+  } catch (error) {
+    console.error(`Error creating continuation job:`, error);
   }
 }
 
@@ -376,16 +496,48 @@ async function processChainedJob(
     }
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isCpuTimeout = errorMessage.includes('CPU') || errorMessage.includes('timeout') || errorMessage.includes('time limit');
+    
     console.error(`Chained job ${jobId} failed:`, error);
     
-    await adminClient
+    // Get current job progress
+    const { data: currentJob } = await adminClient
       .from('generation_jobs')
-      .update({ 
-        status: 'failed',
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', jobId);
+      .select('progress, total, job_type')
+      .eq('id', jobId)
+      .single();
+    
+    const progress = currentJob?.progress || 0;
+    const total = currentJob?.total || 0;
+    const currentJobType = currentJob?.job_type || jobType;
+    
+    const hasRemainingWork = progress < total;
+    const shouldContinue = isCpuTimeout && hasRemainingWork && (currentJobType === 'images' || currentJobType === 'prompts');
+    
+    if (shouldContinue) {
+      console.log(`CPU timeout in chained job ${jobId}. Progress: ${progress}/${total}. Creating continuation...`);
+      
+      await adminClient
+        .from('generation_jobs')
+        .update({ 
+          status: 'completed',
+          error_message: `CPU timeout après ${progress}/${total}. Job de continuation créé automatiquement.`,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+      
+      await createContinuationJob(projectId, userId, currentJobType, metadata, authHeader, adminClient);
+    } else {
+      await adminClient
+        .from('generation_jobs')
+        .update({ 
+          status: 'failed',
+          error_message: errorMessage,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+    }
   }
 }
 
