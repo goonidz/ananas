@@ -35,18 +35,6 @@ const VOICE_OPTIONS = [
   { id: "brian", name: "Brian", language: "en" },
 ];
 
-const DURATION_OPTIONS = [
-  { id: "short", name: "Court (30-60s)", description: "Environ 100-150 mots" },
-  { id: "medium", name: "Moyen (2-3 min)", description: "Environ 300-450 mots" },
-  { id: "long", name: "Long (5-7 min)", description: "Environ 750-1000 mots" },
-];
-
-const STYLE_OPTIONS = [
-  { id: "educational", name: "Éducatif", description: "Informatif avec des explications claires" },
-  { id: "entertaining", name: "Divertissant", description: "Engageant avec de l'humour" },
-  { id: "dramatic", name: "Dramatique", description: "Captivant avec du suspense" },
-  { id: "natural", name: "Naturel", description: "Conversationnel et fluide" },
-];
 
 const DEFAULT_PROMPT = `Tu es un scénariste professionnel pour vidéos YouTube. Tu écris des scripts captivants et optimisés pour la narration vocale.
 
@@ -65,12 +53,8 @@ const CreateFromScratch = () => {
   
   // Topic step
   const [projectName, setProjectName] = useState("");
-  const [topic, setTopic] = useState("");
-  const [duration, setDuration] = useState("medium");
-  const [style, setStyle] = useState("educational");
-  const [language, setLanguage] = useState("fr");
   const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPT);
-  const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [isPromptOpen, setIsPromptOpen] = useState(true);
   
   // Preset management
   const [presets, setPresets] = useState<ScriptPreset[]>([]);
@@ -129,9 +113,6 @@ const CreateFromScratch = () => {
   const handleLoadPreset = (presetId: string) => {
     const preset = presets.find(p => p.id === presetId);
     if (preset) {
-      setDuration(preset.duration || "medium");
-      setStyle(preset.style || "educational");
-      setLanguage(preset.language || "fr");
       setCustomPrompt(preset.custom_prompt || DEFAULT_PROMPT);
       setSelectedPresetId(presetId);
       toast.success(`Preset "${preset.name}" chargé`);
@@ -151,10 +132,7 @@ const CreateFromScratch = () => {
         .insert([{
           user_id: user!.id,
           name: newPresetName.trim(),
-          custom_prompt: customPrompt,
-          duration,
-          style,
-          language
+          custom_prompt: customPrompt
         }]);
 
       if (error) throw error;
@@ -197,8 +175,8 @@ const CreateFromScratch = () => {
   };
 
   const handleGenerateScript = async () => {
-    if (!topic.trim()) {
-      toast.error("Veuillez entrer un sujet pour votre vidéo");
+    if (!customPrompt.trim()) {
+      toast.error("Veuillez entrer un prompt");
       return;
     }
 
@@ -206,11 +184,7 @@ const CreateFromScratch = () => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-script', {
         body: {
-          topic: topic.trim(),
-          duration,
-          style,
-          language,
-          customPrompt: customPrompt !== DEFAULT_PROMPT ? customPrompt : undefined
+          customPrompt
         }
       });
 
@@ -234,11 +208,7 @@ const CreateFromScratch = () => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-script', {
         body: {
-          topic: topic.trim(),
-          duration,
-          style,
-          language,
-          customPrompt: customPrompt !== DEFAULT_PROMPT ? customPrompt : undefined
+          customPrompt
         }
       });
 
@@ -430,69 +400,6 @@ const CreateFromScratch = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="topic">Sujet de la vidéo *</Label>
-                    <Textarea
-                      id="topic"
-                      placeholder="Décrivez le sujet de votre vidéo en détail. Par exemple: 'Les 5 erreurs les plus courantes en investissement immobilier et comment les éviter'"
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      className="min-h-[100px]"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Durée</Label>
-                      <Select value={duration} onValueChange={setDuration}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DURATION_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.id} value={opt.id}>
-                              <div>
-                                <div>{opt.name}</div>
-                                <div className="text-xs text-muted-foreground">{opt.description}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Style</Label>
-                      <Select value={style} onValueChange={setStyle}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STYLE_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.id} value={opt.id}>
-                              <div>
-                                <div>{opt.name}</div>
-                                <div className="text-xs text-muted-foreground">{opt.description}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Langue</Label>
-                    <Select value={language} onValueChange={setLanguage}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fr">Français</SelectItem>
-                        <SelectItem value="en">English</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
 
                   {/* Custom Prompt Section */}
                   <Collapsible open={isPromptOpen} onOpenChange={setIsPromptOpen}>
@@ -531,7 +438,7 @@ const CreateFromScratch = () => {
                         placeholder="Instructions pour Claude IA..."
                       />
                       <p className="text-xs text-muted-foreground">
-                        Ce prompt sera envoyé à Claude IA pour guider la génération du script. Les variables de durée, style et langue seront ajoutées automatiquement.
+                        Ce prompt sera envoyé à Claude IA pour générer le script. Incluez tous les détails: sujet, durée, style, langue, etc.
                       </p>
                     </CollapsibleContent>
                   </Collapsible>
@@ -539,7 +446,7 @@ const CreateFromScratch = () => {
 
                 <Button 
                   onClick={handleGenerateScript} 
-                  disabled={isGeneratingScript || !topic.trim() || !projectName.trim()}
+                  disabled={isGeneratingScript || !customPrompt.trim() || !projectName.trim()}
                   className="w-full"
                   size="lg"
                 >
@@ -700,7 +607,7 @@ const CreateFromScratch = () => {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Ce preset sauvegardera: durée ({duration}), style ({style}), langue ({language}) et le prompt personnalisé.
+              Ce preset sauvegardera le prompt personnalisé.
             </p>
           </div>
           <DialogFooter>
