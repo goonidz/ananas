@@ -1,0 +1,204 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export type JobType = 'transcription' | 'prompts' | 'images' | 'thumbnails';
+export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+
+export interface GenerationJob {
+  id: string;
+  project_id: string;
+  user_id: string;
+  job_type: JobType;
+  status: JobStatus;
+  progress: number;
+  total: number;
+  error_message: string | null;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+interface UseGenerationJobsOptions {
+  projectId: string | null;
+  onJobComplete?: (job: GenerationJob) => void;
+  onJobFailed?: (job: GenerationJob) => void;
+}
+
+export function useGenerationJobs({ projectId, onJobComplete, onJobFailed }: UseGenerationJobsOptions) {
+  const [activeJobs, setActiveJobs] = useState<GenerationJob[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Subscribe to realtime updates for jobs
+  useEffect(() => {
+    if (!projectId) return;
+
+    // Initial fetch
+    fetchActiveJobs();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel(`jobs-${projectId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'generation_jobs',
+          filter: `project_id=eq.${projectId}`
+        },
+        (payload) => {
+          console.log('Job update received:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newJob = payload.new as GenerationJob;
+            setActiveJobs(prev => {
+              // Check if job already exists
+              if (prev.find(j => j.id === newJob.id)) return prev;
+              return [...prev, newJob];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedJob = payload.new as GenerationJob;
+            
+            setActiveJobs(prev => {
+              const existing = prev.find(j => j.id === updatedJob.id);
+              
+              // If job completed or failed, trigger callbacks and remove from active
+              if (updatedJob.status === 'completed') {
+                onJobComplete?.(updatedJob);
+                return prev.filter(j => j.id !== updatedJob.id);
+              } else if (updatedJob.status === 'failed') {
+                onJobFailed?.(updatedJob);
+                return prev.filter(j => j.id !== updatedJob.id);
+              } else if (updatedJob.status === 'cancelled') {
+                return prev.filter(j => j.id !== updatedJob.id);
+              }
+              
+              // Update the job in the list
+              return prev.map(j => j.id === updatedJob.id ? updatedJob : j);
+            });
+          } else if (payload.eventType === 'DELETE') {
+            setActiveJobs(prev => prev.filter(j => j.id !== (payload.old as any).id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, onJobComplete, onJobFailed]);
+
+  const fetchActiveJobs = useCallback(async () => {
+    if (!projectId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('generation_jobs')
+        .select('*')
+        .eq('project_id', projectId)
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Type cast to handle the enum types
+      setActiveJobs((data || []) as unknown as GenerationJob[]);
+    } catch (error) {
+      console.error('Error fetching active jobs:', error);
+    }
+  }, [projectId]);
+
+  const startJob = useCallback(async (
+    jobType: JobType, 
+    metadata: Record<string, any> = {}
+  ): Promise<{ jobId: string; total: number } | null> => {
+    if (!projectId) {
+      toast.error("Aucun projet sélectionné");
+      return null;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('start-generation-job', {
+        body: { projectId, jobType, metadata }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        if (data.existingJobId) {
+          toast.info("Une génération est déjà en cours pour ce projet");
+        } else {
+          throw new Error(data.error);
+        }
+        return null;
+      }
+
+      toast.success(getJobStartMessage(jobType));
+      
+      return { jobId: data.jobId, total: data.total };
+    } catch (error: any) {
+      console.error('Error starting job:', error);
+      toast.error(error.message || "Erreur lors du démarrage de la génération");
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId]);
+
+  const cancelJob = useCallback(async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('generation_jobs')
+        .update({ status: 'cancelled' })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      toast.info("Génération annulée");
+      setActiveJobs(prev => prev.filter(j => j.id !== jobId));
+    } catch (error: any) {
+      console.error('Error cancelling job:', error);
+      toast.error("Erreur lors de l'annulation");
+    }
+  }, []);
+
+  const getJobByType = useCallback((jobType: JobType): GenerationJob | undefined => {
+    return activeJobs.find(j => j.job_type === jobType);
+  }, [activeJobs]);
+
+  const hasActiveJob = useCallback((jobType?: JobType): boolean => {
+    if (jobType) {
+      return activeJobs.some(j => j.job_type === jobType);
+    }
+    return activeJobs.length > 0;
+  }, [activeJobs]);
+
+  return {
+    activeJobs,
+    isLoading,
+    startJob,
+    cancelJob,
+    fetchActiveJobs,
+    getJobByType,
+    hasActiveJob
+  };
+}
+
+function getJobStartMessage(jobType: JobType): string {
+  switch (jobType) {
+    case 'transcription':
+      return "Transcription démarrée en arrière-plan";
+    case 'prompts':
+      return "Génération des prompts démarrée en arrière-plan. Vous pouvez quitter cette page.";
+    case 'images':
+      return "Génération des images démarrée en arrière-plan. Vous pouvez quitter cette page.";
+    case 'thumbnails':
+      return "Génération des miniatures démarrée en arrière-plan";
+    default:
+      return "Génération démarrée en arrière-plan";
+  }
+}

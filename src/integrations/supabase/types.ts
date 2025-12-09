@@ -139,6 +139,59 @@ export type Database = {
         }
         Relationships: []
       }
+      generation_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          job_type: Database["public"]["Enums"]["job_type"]
+          metadata: Json | null
+          progress: number | null
+          project_id: string
+          status: Database["public"]["Enums"]["job_status"]
+          total: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type: Database["public"]["Enums"]["job_type"]
+          metadata?: Json | null
+          progress?: number | null
+          project_id: string
+          status?: Database["public"]["Enums"]["job_status"]
+          total?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type?: Database["public"]["Enums"]["job_type"]
+          metadata?: Json | null
+          progress?: number | null
+          project_id?: string
+          status?: Database["public"]["Enums"]["job_status"]
+          total?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       presets: {
         Row: {
           aspect_ratio: string | null
@@ -366,7 +419,13 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      job_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      job_type: "transcription" | "prompts" | "images" | "thumbnails"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -493,6 +552,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      job_status: ["pending", "processing", "completed", "failed", "cancelled"],
+      job_type: ["transcription", "prompts", "images", "thumbnails"],
+    },
   },
 } as const

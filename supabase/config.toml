@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.generate-video]
 verify_jwt = false
+
+[functions.start-generation-job]
+verify_jwt = false
+
+[functions.get-job-status]
+verify_jwt = false
