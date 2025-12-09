@@ -111,8 +111,24 @@ export function useGenerationJobs({ projectId, onJobComplete, onJobFailed, autoR
   useEffect(() => {
     if (!projectId) return;
 
-    // Initial fetch
-    fetchActiveJobs();
+    // Initial fetch - wrapped to avoid issues with callback order
+    const doInitialFetch = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('generation_jobs')
+          .select('*')
+          .eq('project_id', projectId)
+          .in('status', ['pending', 'processing'])
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setActiveJobs((data || []) as unknown as GenerationJob[]);
+      } catch (error) {
+        console.error('Error fetching initial active jobs:', error);
+      }
+    };
+    
+    doInitialFetch();
 
     // Subscribe to realtime updates
     const channel = supabase
@@ -163,8 +179,12 @@ export function useGenerationJobs({ projectId, onJobComplete, onJobFailed, autoR
       )
       .subscribe();
 
+    // Periodic re-fetch to catch any jobs we might have missed
+    const refetchInterval = setInterval(doInitialFetch, 5000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(refetchInterval);
     };
   }, [projectId, checkAndRetryMissingImages]);
 
