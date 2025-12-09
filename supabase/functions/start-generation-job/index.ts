@@ -423,9 +423,9 @@ async function processImagesJob(
     .map((prompt: any, index: number) => ({ prompt, index }))
     .filter(({ prompt }: any) => prompt && (!skipExisting || !prompt.imageUrl));
 
-  let progress = 0;
   const updatedPrompts = [...prompts];
-  let completedCount = 0;
+  let successCount = 0;
+  let failedCount = 0;
 
   // Process in batches of 100 for images (parallel)
   const batchSize = 100;
@@ -526,12 +526,12 @@ async function processImagesJob(
 
         if (imageUrl) {
           updatedPrompts[index] = { ...updatedPrompts[index], imageUrl };
-          completedCount++;
+          successCount++;
           
-          // Update progress and save image immediately after each completion
+          // Update progress (only count successes) and save image immediately
           await adminClient
             .from('generation_jobs')
-            .update({ progress: completedCount })
+            .update({ progress: successCount })
             .eq('id', jobId);
           
           await adminClient
@@ -539,21 +539,22 @@ async function processImagesJob(
             .update({ prompts: updatedPrompts })
             .eq('id', projectId);
             
-          console.log(`Image ${index + 1} saved, progress: ${completedCount}/${promptsToProcess.length}`);
+          console.log(`Image ${index + 1} saved successfully, progress: ${successCount}/${promptsToProcess.length}`);
+        } else {
+          failedCount++;
+          console.error(`Image ${index + 1} failed: no image URL after polling`);
         }
 
       } catch (error) {
+        failedCount++;
         console.error(`Error generating image for scene ${index + 1}:`, error);
-        completedCount++;
-        // Update progress even on failure
-        await adminClient
-          .from('generation_jobs')
-          .update({ progress: completedCount })
-          .eq('id', jobId);
+        // Don't increment progress on failure - only count successful images
       }
     });
 
     await Promise.all(batchPromises);
+    
+    console.log(`Batch completed. Success: ${successCount}, Failed: ${failedCount}`);
   }
 }
 
