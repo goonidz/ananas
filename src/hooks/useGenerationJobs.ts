@@ -27,7 +27,7 @@ interface UseGenerationJobsOptions {
   autoRetryImages?: boolean; // Auto-retry if images are missing after job completes
 }
 
-export function useGenerationJobs({ projectId, onJobComplete, onJobFailed, autoRetryImages = true }: UseGenerationJobsOptions) {
+export function useGenerationJobs({ projectId, onJobComplete, onJobFailed, autoRetryImages = false }: UseGenerationJobsOptions) {
   const [activeJobs, setActiveJobs] = useState<GenerationJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
