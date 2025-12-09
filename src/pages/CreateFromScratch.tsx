@@ -1529,14 +1529,14 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                       </div>
                       
                       <div className="space-y-2">
-                        <Label>Volume ({(minimaxVolume * 100).toFixed(0)}%)</Label>
+                        <Label>Volume ({Math.round(minimaxVolume * 100)}%)</Label>
                         <input
                           type="range"
-                          min="0.1"
-                          max="1.0"
-                          step="0.1"
-                          value={minimaxVolume}
-                          onChange={(e) => setMinimaxVolume(parseFloat(e.target.value))}
+                          min="10"
+                          max="100"
+                          step="10"
+                          value={Math.round(minimaxVolume * 100)}
+                          onChange={(e) => setMinimaxVolume(parseInt(e.target.value) / 100)}
                           className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                         <div className="flex justify-between text-xs text-muted-foreground">
