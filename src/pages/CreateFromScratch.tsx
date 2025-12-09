@@ -1419,7 +1419,7 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                                 >
                                   <p className="font-medium text-sm">{preset.name}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {preset.provider === "minimax" ? "MiniMax" : "ElevenLabs"} - {preset.voice_id}
+                                    {preset.provider === "minimax" ? "MiniMax (API Officielle)" : "ElevenLabs (Replicate)"} - {preset.voice_id}
                                   </p>
                                 </div>
                                 <div className="flex gap-1">
@@ -1488,8 +1488,8 @@ Génère un script qui défend et développe cette thèse spécifique. Le script
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
-                      <SelectItem value="minimax">MiniMax</SelectItem>
+                      <SelectItem value="elevenlabs">ElevenLabs (via Replicate)</SelectItem>
+                      <SelectItem value="minimax">MiniMax (API Officielle)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
