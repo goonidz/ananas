@@ -177,17 +177,27 @@ Deno.serve(async (req) => {
 
     console.log(`${modelVersion} input parameters:`, input)
 
-    // Check if async mode is requested (polling-based)
+    // Check if async mode is requested (polling-based or webhook-based)
     const asyncMode = body.async === true;
+    const webhookUrl = body.webhook_url;
     
     if (asyncMode) {
       // Async mode: create prediction and return immediately
-      console.log("Starting async generation with polling mode");
+      console.log("Starting async generation", webhookUrl ? "with webhook" : "with polling mode");
       try {
-        const prediction = await replicate.predictions.create({
+        const createOptions: any = {
           model: modelName,
           input
-        });
+        };
+        
+        // Add webhook if provided
+        if (webhookUrl) {
+          createOptions.webhook = webhookUrl;
+          createOptions.webhook_events_filter = ["completed"];
+          console.log("Webhook configured:", webhookUrl);
+        }
+        
+        const prediction = await replicate.predictions.create(createOptions);
         
         console.log("Prediction created:", prediction.id, "status:", prediction.status);
         

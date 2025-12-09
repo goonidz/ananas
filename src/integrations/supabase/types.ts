@@ -192,6 +192,72 @@ export type Database = {
           },
         ]
       }
+      pending_predictions: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          job_id: string | null
+          metadata: Json | null
+          prediction_id: string
+          prediction_type: string
+          project_id: string | null
+          result_url: string | null
+          scene_index: number | null
+          status: string | null
+          thumbnail_index: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          prediction_id: string
+          prediction_type: string
+          project_id?: string | null
+          result_url?: string | null
+          scene_index?: number | null
+          status?: string | null
+          thumbnail_index?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          prediction_id?: string
+          prediction_type?: string
+          project_id?: string | null
+          result_url?: string | null
+          scene_index?: number | null
+          status?: string | null
+          thumbnail_index?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_predictions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "generation_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_predictions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       presets: {
         Row: {
           aspect_ratio: string | null
