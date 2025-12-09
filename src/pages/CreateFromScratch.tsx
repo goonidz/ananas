@@ -631,7 +631,7 @@ const CreateFromScratch = () => {
                       <div className="flex-1">
                         <p className="font-medium">{generationMessage}</p>
                         <p className="text-sm text-muted-foreground">
-                          La génération peut prendre 1-2 minutes pour un script long
+                          La génération peut prendre 3-4 minutes pour un script long
                         </p>
                       </div>
                     </div>
