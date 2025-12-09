@@ -13,28 +13,35 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
+    // Get user from JWT token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("No authorization header");
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabaseAuth = createClient(
+    // Create admin client to verify user
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+    // Get user from token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    
     if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log("User authenticated:", user.id);
 
     const { customPrompt } = await req.json();
 
@@ -44,11 +51,7 @@ serve(async (req) => {
 
     console.log("Generating script with custom prompt");
 
-    // Get user's Replicate API key from Vault
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Get user's Replicate API key from Vault (reuse supabaseAdmin from above)
 
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.rpc(
       'get_user_api_key_for_service',
