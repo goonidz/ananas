@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { parseStyleReferenceUrls, serializeStyleReferenceUrls } from "@/lib/styleReferenceHelpers";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle, FileText, ArrowUp, MonitorPlay } from "lucide-react";
+import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle, FileText, ArrowUp, MonitorPlay, Cloud } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
@@ -59,6 +59,8 @@ import { DescriptionGenerator } from "@/components/DescriptionGenerator";
 import { YouTubeTester } from "@/components/YouTubeTester";
 import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useGenerationJobs, GenerationJob } from "@/hooks/useGenerationJobs";
+import { ActiveJobsBanner } from "@/components/JobProgressIndicator";
 
 interface TranscriptSegment {
   text: string;
@@ -163,6 +165,44 @@ const Index = () => {
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editingProjectNameValue, setEditingProjectNameValue] = useState("");
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Background job management
+  const handleJobComplete = useCallback((job: GenerationJob) => {
+    toast.success(`${job.job_type === 'prompts' ? 'Prompts' : 'Images'} générés en arrière-plan !`);
+    if (currentProjectId) {
+      loadProjectData(currentProjectId);
+    }
+  }, [currentProjectId]);
+
+  const handleJobFailed = useCallback((job: GenerationJob) => {
+    toast.error(`Erreur: ${job.error_message || 'Génération échouée'}`);
+  }, []);
+
+  const { 
+    activeJobs, 
+    startJob, 
+    cancelJob, 
+    hasActiveJob 
+  } = useGenerationJobs({
+    projectId: currentProjectId,
+    onJobComplete: handleJobComplete,
+    onJobFailed: handleJobFailed
+  });
+
+  // Background generation functions
+  const startBackgroundPrompts = async () => {
+    const result = await startJob('prompts', { regenerate: false });
+    if (result) {
+      toast.info("Génération des prompts lancée en arrière-plan. Vous pouvez quitter cette page.");
+    }
+  };
+
+  const startBackgroundImages = async (skipExisting = true) => {
+    const result = await startJob('images', { skipExisting });
+    if (result) {
+      toast.info("Génération des images lancée en arrière-plan. Vous pouvez quitter cette page.");
+    }
+  };
 
   // Scroll to top button visibility
   useEffect(() => {
