@@ -475,17 +475,18 @@ const Workspace = () => {
                   )}
                 </Button>
 
-                {/* TEMPORARY: Delete all images button */}
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteAllImages}
-                  title="TEMP: Supprimer toutes les images"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Suppr. images
-                </Button>
               </>
             )}
+
+            {/* TEMPORARY: Delete all images button */}
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAllImages}
+              title="TEMP: Supprimer toutes les images"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Suppr. images
+            </Button>
             
             <Button variant="outline" size="icon">
               <Settings className="h-4 w-4" />
