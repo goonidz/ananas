@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Upload, X, Loader2, Image as ImageIcon, RefreshCw, Settings, Download, User as UserIcon, Video, Type, Sparkles, Check, Copy, FolderOpen, Pencil, AlertCircle, FileText, ArrowUp, MonitorPlay, Cloud } from "lucide-react";
+import { ProjectConfigurationModal } from "@/components/ProjectConfigurationModal";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
@@ -165,6 +166,7 @@ const Index = () => {
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [editingProjectNameValue, setEditingProjectNameValue] = useState("");
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showConfigurationModal, setShowConfigurationModal] = useState(false);
 
   // Use ref for currentProjectId to avoid stale closures in callbacks
   const currentProjectIdRef = useRef(currentProjectId);
@@ -220,6 +222,11 @@ const Index = () => {
           // Update audio URL
           if (data.audio_url) {
             setAudioUrl(data.audio_url);
+          }
+          
+          // If transcription just completed and no scenes yet, show configuration modal
+          if (job.job_type === 'transcription' && data.transcript_json && existingScenes.length === 0) {
+            setShowConfigurationModal(true);
           }
         });
     }
@@ -314,6 +321,26 @@ const Index = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [currentProjectId, transcriptData, examplePrompts, scenes, generatedPrompts, sceneDuration0to1, sceneDuration1to3, sceneDuration3plus, styleReferenceUrls, audioUrl, imageWidth, imageHeight, aspectRatio, imageModel, promptSystemMessage]);
+
+  // Track if we've already shown the config modal for this session
+  const hasShownConfigModalRef = useRef(false);
+  
+  // Show configuration modal if project has transcript but no scenes (only once per session)
+  useEffect(() => {
+    if (transcriptData && scenes.length === 0 && currentProjectId && !hasActiveJob('transcription') && !hasShownConfigModalRef.current) {
+      // Small delay to allow UI to settle
+      const timer = setTimeout(() => {
+        setShowConfigurationModal(true);
+        hasShownConfigModalRef.current = true;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [transcriptData, scenes, currentProjectId, hasActiveJob]);
+  
+  // Reset the flag when project changes
+  useEffect(() => {
+    hasShownConfigModalRef.current = false;
+  }, [currentProjectId]);
 
   const loadProjectData = async (projectId: string) => {
     try {
@@ -1881,6 +1908,27 @@ const Index = () => {
                   </Card>
                 )}
 
+                {/* CTA when transcription is done but no scenes yet */}
+                {transcriptData && scenes.length === 0 && (
+                  <Card className="p-6 border-2 border-primary/50 bg-primary/5 mb-6">
+                    <div className="flex items-start gap-4">
+                      <div className="rounded-full bg-primary/10 p-3">
+                        <Sparkles className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg mb-1">Transcription prête !</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Configurez les paramètres puis générez vos scènes pour continuer.
+                        </p>
+                        <Button onClick={() => setShowConfigurationModal(true)} size="lg">
+                          <Settings className="mr-2 h-4 w-4" />
+                          Configurer et générer les scènes
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
                 <div className="grid grid-cols-3 gap-6">
                   {/* Configuration des scènes */}
                   <Card className="p-4 bg-muted/30 border-primary/20">
@@ -3261,6 +3309,69 @@ Return ONLY the prompt text, no JSON, no title, just the optimized prompt in ENG
                   </Button>
                 </div>
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Configuration Modal after transcription */}
+        <Dialog open={showConfigurationModal} onOpenChange={setShowConfigurationModal}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            {transcriptData && currentProjectId && (
+              <ProjectConfigurationModal
+                transcriptData={transcriptData}
+                currentProjectId={currentProjectId}
+                onComplete={async () => {
+                  setShowConfigurationModal(false);
+                  
+                  // Fetch fresh config from database and generate scenes
+                  const { data, error } = await supabase
+                    .from("projects")
+                    .select("*")
+                    .eq("id", currentProjectId)
+                    .single();
+                  
+                  if (error || !data) {
+                    toast.error("Erreur lors du chargement de la configuration");
+                    return;
+                  }
+                  
+                  // Update local state with fresh data
+                  const freshSceneDuration0to1 = data.scene_duration_0to1 || 4;
+                  const freshSceneDuration1to3 = data.scene_duration_1to3 || 6;
+                  const freshSceneDuration3plus = data.scene_duration_3plus || 8;
+                  
+                  setSceneDuration0to1(freshSceneDuration0to1);
+                  setSceneDuration1to3(freshSceneDuration1to3);
+                  setSceneDuration3plus(freshSceneDuration3plus);
+                  
+                  if (data.example_prompts) {
+                    setExamplePrompts(data.example_prompts as string[]);
+                  }
+                  if (data.image_width) setImageWidth(data.image_width);
+                  if (data.image_height) setImageHeight(data.image_height);
+                  if (data.aspect_ratio) setAspectRatio(data.aspect_ratio);
+                  if (data.image_model) setImageModel(data.image_model);
+                  if (data.style_reference_url) {
+                    setStyleReferenceUrls(parseStyleReferenceUrls(data.style_reference_url));
+                  }
+                  
+                  // Generate scenes with fresh configuration
+                  if (transcriptData) {
+                    const generatedScenes = parseTranscriptToScenes(
+                      transcriptData,
+                      freshSceneDuration0to1,
+                      freshSceneDuration1to3,
+                      freshSceneDuration3plus,
+                      range1End,
+                      range2End,
+                      preferSentenceBoundaries
+                    );
+                    setScenes(generatedScenes);
+                    toast.success(`${generatedScenes.length} scènes générées !`);
+                  }
+                }}
+                onCancel={() => setShowConfigurationModal(false)}
+              />
             )}
           </DialogContent>
         </Dialog>
