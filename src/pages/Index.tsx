@@ -352,7 +352,7 @@ const Index = () => {
       hasSemiAutoStartedRef.current = true;
       
       // Clear the semi_auto param from URL
-      navigate(`/?project=${projectId}`, { replace: true });
+      navigate(`/project?project=${projectId}`, { replace: true });
       
       // Start semi-automatic generation pipeline
       toast.info("Mode semi-automatique activé. Génération des prompts en cours...");
