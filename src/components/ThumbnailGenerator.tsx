@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, X, Loader2, Image as ImageIcon, Save, Download, Trash2, Edit, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -92,6 +93,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
   const [generatedPrompts, setGeneratedPrompts] = useState<string[]>([]);
   const [imageModel, setImageModel] = useState<string>("seedream-4.5");
   const [userIdea, setUserIdea] = useState<string>("");
+  const [avoidPreviousPrompts, setAvoidPreviousPrompts] = useState<boolean>(true);
 
   // Background job management for thumbnails
   const handleJobComplete = useCallback(async (job: GenerationJob) => {
@@ -387,8 +389,10 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
     setGeneratedPrompts([]);
 
     try {
-      // Collect previous prompts for variation
-      const previousPrompts = thumbnailHistory.flatMap(item => item.prompts);
+      // Collect previous prompts for variation (only if option is enabled)
+      const previousPrompts = avoidPreviousPrompts 
+        ? thumbnailHistory.flatMap(item => item.prompts)
+        : [];
       
       toast.info("Lancement de la génération en arrière-plan...");
       
@@ -881,6 +885,18 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
             )}
           </div>
 
+          {/* Option pour éviter les prompts précédents */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="avoid-previous"
+              checked={avoidPreviousPrompts}
+              onCheckedChange={(checked) => setAvoidPreviousPrompts(checked === true)}
+            />
+            <Label htmlFor="avoid-previous" className="text-sm cursor-pointer">
+              Éviter de répéter les idées des miniatures précédentes
+            </Label>
+          </div>
+
           {/* Bouton de génération */}
           <Button
             onClick={generateThumbnails}
@@ -966,7 +982,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {item.thumbnail_urls.map((url, index) => (
                     <div key={index} className="space-y-2">
                       <div className="relative group">
@@ -989,6 +1005,13 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
                           Modifier
                         </Button>
                       </div>
+                      {/* Afficher le prompt utilisé */}
+                      {item.prompts[index] && (
+                        <div className="p-2 bg-muted rounded text-xs text-muted-foreground max-h-24 overflow-y-auto">
+                          <p className="font-medium text-foreground mb-1">Prompt:</p>
+                          {item.prompts[index]}
+                        </div>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
