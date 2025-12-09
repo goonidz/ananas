@@ -332,6 +332,7 @@ const Index = () => {
   }, [currentProjectId]);
 
   // Auto-save project data when it changes
+  // Note: prompts are NOT included here because they are managed by the backend job queue
   useEffect(() => {
     if (currentProjectId) {
       const timeoutId = setTimeout(() => {
@@ -340,7 +341,7 @@ const Index = () => {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [currentProjectId, transcriptData, examplePrompts, scenes, generatedPrompts, sceneDuration0to1, sceneDuration1to3, sceneDuration3plus, styleReferenceUrls, audioUrl, imageWidth, imageHeight, aspectRatio, imageModel, promptSystemMessage]);
+  }, [currentProjectId, transcriptData, examplePrompts, scenes, sceneDuration0to1, sceneDuration1to3, sceneDuration3plus, styleReferenceUrls, audioUrl, imageWidth, imageHeight, aspectRatio, imageModel, promptSystemMessage]);
 
   // Track if we've already shown the config modal for this session
   const hasShownConfigModalRef = useRef(false);
@@ -427,13 +428,13 @@ const Index = () => {
     if (!currentProjectId) return;
 
     try {
+      // Note: prompts are NOT saved here - they are managed by the backend job queue
       const { error } = await supabase
         .from("projects")
         .update({
           transcript_json: transcriptData as any,
           example_prompts: examplePrompts as any,
           scenes: scenes as any,
-          prompts: generatedPrompts as any,
           scene_duration_0to1: sceneDuration0to1,
           scene_duration_1to3: sceneDuration1to3,
           scene_duration_3plus: sceneDuration3plus,
