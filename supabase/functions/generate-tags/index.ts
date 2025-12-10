@@ -52,20 +52,26 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `Tu es un expert en SEO YouTube. Génère exactement 10 tags/mots-clés pertinents que les utilisateurs pourraient taper pour trouver cette vidéo.
+    const systemPrompt = `Tu es un expert en SEO YouTube. Génère exactement 10 mots-clés/tags pertinents pour cette vidéo.
 
 RÈGLES IMPORTANTES:
 1. Génère EXACTEMENT 10 tags
-2. Les tags doivent être des termes de recherche réalistes que les gens taperaient
-3. Mélange de tags courts (1-2 mots) et moyens (3-4 mots)
-4. Inclus des variations et synonymes
-5. Pense aux intentions de recherche des utilisateurs
-6. Les tags doivent être en rapport direct avec le contenu du script
-7. Inclus le sujet principal et des termes connexes
-8. Évite les tags trop génériques ou trop spécifiques
+2. Les tags doivent être des MOTS-CLÉS GÉNÉRAUX (1-3 mots maximum), PAS des phrases de recherche complètes
+3. Génère les tags DANS LA MÊME LANGUE que le script de la vidéo (si le script est en anglais, tags en anglais; si en français, tags en français, etc.)
+4. Privilégie des termes larges et génériques qui couvrent le sujet
+5. Inclus le sujet principal et des termes connexes populaires
+6. Évite les tags trop spécifiques ou trop longs
+7. Pense aux catégories et thèmes généraux
+
+EXEMPLES DE BONS TAGS:
+- "investing", "ETF", "finance", "stock market", "money"
+- "investissement", "bourse", "argent", "épargne", "finances"
+
+EXEMPLES DE MAUVAIS TAGS (trop spécifiques):
+- "how to invest in ETF 2024", "best ETF for beginners to buy"
 
 Réponds UNIQUEMENT avec un tableau JSON de 10 strings, sans explication.
-Exemple de format: ["tag 1", "tag 2", "tag 3", ...]`;
+Exemple: ["tag1", "tag2", "tag3", ...]`;
 
     const userContent = `TITRE DE LA VIDÉO: ${videoTitle || "Sans titre"}
 
