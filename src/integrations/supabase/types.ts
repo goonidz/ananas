@@ -92,6 +92,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          preset_name: string | null
           project_id: string
           prompts: Json
           thumbnail_urls: Json
@@ -100,6 +101,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          preset_name?: string | null
           project_id: string
           prompts?: Json
           thumbnail_urls?: Json
@@ -108,6 +110,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          preset_name?: string | null
           project_id?: string
           prompts?: Json
           thumbnail_urls?: Json
