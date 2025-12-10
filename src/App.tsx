@@ -12,6 +12,7 @@ import TestScenes from "./pages/TestScenes";
 import Profile from "./pages/Profile";
 import Calendar from "./pages/Calendar";
 import CreateFromScratch from "./pages/CreateFromScratch";
+import StandaloneThumbnails from "./pages/StandaloneThumbnails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/workspace" element={<Workspace />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/create-from-scratch" element={<CreateFromScratch />} />
+          <Route path="/thumbnails" element={<StandaloneThumbnails />} />
           <Route path="/test-scenes" element={<TestScenes />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/auth" element={<Auth />} />

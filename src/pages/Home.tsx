@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Video, History, Sparkles, Calendar, Mic, FileText, User } from "lucide-react";
+import { Video, History, Sparkles, Calendar, Mic, FileText, User, ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -104,7 +104,23 @@ const Home = () => {
         </div>
 
         {/* Secondary Action Cards */}
-        <div className="grid md:grid-cols-2 gap-6 w-full max-w-3xl">
+        <div className="grid md:grid-cols-3 gap-6 w-full max-w-4xl">
+          <Link to="/thumbnails" className="group">
+            <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 border hover:border-primary/30 bg-card/30 backdrop-blur h-full">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <ImageIcon className="h-6 w-6 text-primary" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-bold">Miniatures</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Générez des miniatures sans projet
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </Link>
+
           <Link to="/calendar" className="group">
             <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 border hover:border-primary/30 bg-card/30 backdrop-blur h-full">
               <div className="flex items-center gap-4">
@@ -114,7 +130,7 @@ const Home = () => {
                 <div className="text-left">
                   <h3 className="text-lg font-bold">Calendrier</h3>
                   <p className="text-sm text-muted-foreground">
-                    Planifiez vos vidéos et gérez votre calendrier de contenu
+                    Planifiez vos vidéos
                   </p>
                 </div>
               </div>
@@ -130,7 +146,7 @@ const Home = () => {
                 <div className="text-left">
                   <h3 className="text-lg font-bold">Mes projets</h3>
                   <p className="text-sm text-muted-foreground">
-                    Accédez à l'historique de tous vos projets vidéo
+                    Historique des projets
                   </p>
                 </div>
               </div>
