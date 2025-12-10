@@ -350,6 +350,9 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
       .sort((a: any, b: any) => (a.thumbnail_index || 0) - (b.thumbnail_index || 0));
 
     if (thumbnailPredictions.length > 0) {
+      // Get preset name from job metadata
+      const presetName = job.metadata?.presetName || null;
+      
       const { error: saveError } = await adminClient
         .from('generated_thumbnails')
         .insert({
@@ -357,12 +360,13 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
           user_id: job.user_id,
           thumbnail_urls: thumbnailPredictions.map((p: any) => p.result_url),
           prompts: thumbnailPredictions.map((p: any) => p.metadata?.prompt || ''),
+          preset_name: presetName,
         });
 
       if (saveError) {
         console.error("Error saving thumbnails to history:", saveError);
       } else {
-        console.log(`Saved ${thumbnailPredictions.length} thumbnails to history`);
+        console.log(`Saved ${thumbnailPredictions.length} thumbnails to history (preset: ${presetName || 'none'})`);
       }
     }
   }

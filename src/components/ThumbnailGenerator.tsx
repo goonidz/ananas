@@ -64,6 +64,7 @@ interface GeneratedThumbnailHistory {
   thumbnail_urls: string[];
   prompts: string[];
   created_at: string;
+  preset_name: string | null;
 }
 
 export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: ThumbnailGeneratorProps) => {
@@ -221,6 +222,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
           ? item.prompts.filter((p): p is string => typeof p === 'string')
           : [],
         created_at: item.created_at,
+        preset_name: (item as any).preset_name || null,
       }));
 
       setThumbnailHistory(mappedHistory);
@@ -410,6 +412,10 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
       
       toast.info("Lancement de la génération en arrière-plan...");
       
+      // Get the preset name if one is selected
+      const selectedPreset = presets.find(p => p.id === selectedPresetId);
+      const presetName = selectedPreset?.name || null;
+      
       // Start background job with all required metadata
       await startJob('thumbnails', {
         videoScript,
@@ -419,7 +425,8 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
         previousPrompts: previousPrompts.length > 0 ? previousPrompts : undefined,
         customPrompt: customPrompt !== DEFAULT_THUMBNAIL_PROMPT ? customPrompt : undefined,
         userIdea: userIdea.trim() || undefined,
-        imageModel
+        imageModel,
+        presetName
       });
       
       toast.success("Génération démarrée ! Vous pouvez quitter cette page.");
@@ -636,12 +643,13 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
         .getPublicUrl(filePath);
 
       // Add to history
-      const newHistory = [
+      const newHistory: GeneratedThumbnailHistory[] = [
         {
           id: crypto.randomUUID(),
           prompts: [editingImagePrompt],
           thumbnail_urls: [publicUrl],
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          preset_name: null
         },
         ...thumbnailHistory
       ];
@@ -979,7 +987,7 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
             thumbnailHistory.map((item) => (
               <Card key={item.id} className="p-4">
                 <div className="flex justify-between items-start mb-4">
-                  <div>
+                  <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">
                       {new Date(item.created_at).toLocaleDateString('fr-FR', {
                         year: 'numeric',
@@ -989,6 +997,11 @@ export const ThumbnailGenerator = ({ projectId, videoScript, videoTitle }: Thumb
                         minute: '2-digit',
                       })}
                     </p>
+                    {item.preset_name && (
+                      <p className="text-xs font-medium text-primary">
+                        Preset: {item.preset_name}
+                      </p>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
