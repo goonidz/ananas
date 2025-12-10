@@ -174,33 +174,70 @@ serve(async (req) => {
 });
 
 async function updateSceneImage(adminClient: any, prediction: any, imageUrl: string) {
-  const { data: project } = await adminClient
-    .from('projects')
-    .select('prompts')
-    .eq('id', prediction.project_id)
-    .single();
-
-  if (!project) {
-    console.error(`Project ${prediction.project_id} not found`);
+  const sceneIndex = prediction.scene_index;
+  
+  if (sceneIndex === undefined || sceneIndex === null) {
+    console.error(`Invalid scene index for prediction ${prediction.id}`);
     return;
   }
 
-  const prompts = (project.prompts as any[]) || [];
-  const sceneIndex = prediction.scene_index;
+  // Retry logic to handle race conditions when multiple webhooks update simultaneously
+  const MAX_RETRIES = 3;
+  let updateSuccess = false;
+  
+  for (let attempt = 0; attempt < MAX_RETRIES && !updateSuccess; attempt++) {
+    // Add random delay to reduce collision probability
+    if (attempt > 0) {
+      const delay = Math.random() * 1000 + 500; // 500-1500ms random delay
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    const { data: project } = await adminClient
+      .from('projects')
+      .select('prompts')
+      .eq('id', prediction.project_id)
+      .single();
 
-  if (sceneIndex !== undefined && sceneIndex !== null && prompts[sceneIndex]) {
+    if (!project) {
+      console.error(`Project ${prediction.project_id} not found`);
+      break;
+    }
+
+    const prompts = (project.prompts as any[]) || [];
+    
+    if (!prompts[sceneIndex]) {
+      console.error(`Scene index ${sceneIndex} not found in prompts`);
+      break;
+    }
+
+    // Check if already updated by another webhook
+    if (prompts[sceneIndex].imageUrl === imageUrl) {
+      console.log(`Scene ${sceneIndex + 1} already has this image URL`);
+      updateSuccess = true;
+      break;
+    }
+
     const updatedPrompts = [...prompts];
     updatedPrompts[sceneIndex] = { ...updatedPrompts[sceneIndex], imageUrl };
 
-    await adminClient
+    const { error: updateError } = await adminClient
       .from('projects')
       .update({ prompts: updatedPrompts })
       .eq('id', prediction.project_id);
 
-    console.log(`Updated scene ${sceneIndex + 1} with image URL`);
+    if (!updateError) {
+      console.log(`Updated scene ${sceneIndex + 1} with image URL (attempt ${attempt + 1})`);
+      updateSuccess = true;
+    } else {
+      console.warn(`Update attempt ${attempt + 1} failed for scene ${sceneIndex + 1}:`, updateError);
+    }
   }
   
-  // Update job progress
+  if (!updateSuccess) {
+    console.error(`Failed to update scene ${sceneIndex + 1} after ${MAX_RETRIES} attempts`);
+  }
+  
+  // Always update job progress
   if (prediction.job_id) {
     const { data: completedPredictions } = await adminClient
       .from('pending_predictions')
@@ -341,6 +378,31 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
     .eq('id', jobId);
 
   console.log(`Job ${jobId} marked as completed. Success: ${successfulPredictions.length}, Failed: ${failedCount}`);
+
+  // Auto-repair any missing images due to race conditions
+  if (job.job_type === 'images') {
+    console.log(`Running repair-missing-images for project ${job.project_id}`);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    try {
+      const repairResponse = await fetch(`${supabaseUrl}/functions/v1/repair-missing-images`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceRoleKey}`
+        },
+        body: JSON.stringify({ projectId: job.project_id })
+      });
+      
+      if (repairResponse.ok) {
+        const repairResult = await repairResponse.json();
+        console.log(`Repair result: ${repairResult.repaired} images repaired, ${repairResult.stillMissing} still missing`);
+      }
+    } catch (repairError) {
+      console.error("Error calling repair-missing-images:", repairError);
+    }
+  }
 
   // Handle semi-auto mode chaining
   const metadata = job.metadata || {};
