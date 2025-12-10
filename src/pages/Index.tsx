@@ -436,8 +436,9 @@ const Index = () => {
   // Track if project data has been loaded at least once
   const projectDataLoadedRef = useRef(false);
   
-  // Show configuration modal if project has transcript but no scenes (only once per session)
+  // Show configuration modal if project has transcript but no scenes AND no prompts (only once per session)
   // IMPORTANT: Don't show if semi_auto mode is active (user just came from project creation workflow)
+  // Also don't show if prompts already exist - this means the project was already processed
   useEffect(() => {
     const semiAuto = searchParams.get("semi_auto");
     
@@ -450,6 +451,11 @@ const Index = () => {
     // Only show modal after project data has been loaded at least once
     if (!projectDataLoadedRef.current) return;
     
+    // Don't show if prompts already exist - project is already complete
+    if (generatedPrompts.length > 0) {
+      return;
+    }
+    
     if (transcriptData && scenes.length === 0 && currentProjectId && !hasActiveJob('transcription') && !hasShownConfigModalRef.current) {
       // Small delay to allow UI to settle
       const timer = setTimeout(() => {
@@ -458,7 +464,7 @@ const Index = () => {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [transcriptData, scenes, currentProjectId, hasActiveJob, searchParams]);
+  }, [transcriptData, scenes, generatedPrompts, currentProjectId, hasActiveJob, searchParams]);
   
   // Reset the flag when project changes
   useEffect(() => {
