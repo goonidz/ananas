@@ -36,20 +36,39 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const body = await req.json();
-    const { projectId, jobType, metadata = {}, jobId: existingJobId } = body as JobRequest & { jobId?: string };
+    const { projectId, jobType, metadata = {}, jobId: existingJobId, userId: bodyUserId } = body as JobRequest & { jobId?: string; userId?: string };
+
+    // Check if this is an internal call from webhook (using service role key)
+    const isInternalCall = authHeader === `Bearer ${supabaseServiceKey}`;
+    
+    let userId: string;
+    
+    if (isInternalCall) {
+      // Internal call from webhook - use userId from body
+      if (!bodyUserId) {
+        return new Response(JSON.stringify({ error: 'userId required for internal calls' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      userId = bodyUserId;
+      console.log(`Internal call for job ${existingJobId || 'new'}, user ${userId}`);
+    } else {
+      // Normal user call - authenticate
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } }
+      });
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      userId = user.id;
+    }
 
     // Allow null projectId for standalone jobs (like standalone thumbnails)
     const isStandaloneRequest = metadata?.standalone === true;
@@ -226,7 +245,7 @@ serve(async (req) => {
       .from('generation_jobs')
       .insert({
         project_id: isStandalone ? null : projectId,
-        user_id: user.id,
+        user_id: userId,
         job_type: jobType,
         status: 'pending',
         progress: 0,
@@ -250,7 +269,7 @@ serve(async (req) => {
     console.log(`Created job ${job.id} for ${jobType} on project ${projectId}`);
 
     // Start the background processing
-    EdgeRuntime.waitUntil(processJob(job.id, projectId, jobType, user.id, metadata, authHeader));
+    EdgeRuntime.waitUntil(processJob(job.id, projectId, jobType, userId, metadata, authHeader));
 
     // Return immediately with job ID
     return new Response(
