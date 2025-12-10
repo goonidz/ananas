@@ -860,9 +860,13 @@ async function processImagesJob(
   const webhookUrl = `${supabaseUrl}/functions/v1/replicate-webhook`;
 
   // Batch settings to avoid "Queue is full" errors from Replicate
-  const BATCH_SIZE = 5; // Send 5 images at a time
-  const DELAY_BETWEEN_BATCHES_MS = 3000; // 3 seconds between batches
-  const DELAY_BETWEEN_REQUESTS_MS = 200; // 200ms between individual requests in a batch
+  // IMPORTANT: These are conservative settings to prevent queue overflow when multiple projects run simultaneously
+  const BATCH_SIZE = 3; // Send only 3 images at a time (reduced from 5)
+  const DELAY_BETWEEN_BATCHES_MS = 5000; // 5 seconds between batches (increased from 3)
+  const DELAY_BETWEEN_REQUESTS_MS = 500; // 500ms between individual requests in a batch (increased from 200)
+  const MAX_CONCURRENT_PREDICTIONS = 15; // Maximum pending predictions across all projects
+  const MAX_RETRIES = 3; // Maximum retries for queue full errors
+  const BASE_RETRY_DELAY_MS = 15000; // Base delay for exponential backoff (15 seconds)
 
   let startedCount = 0;
   let failedCount = 0;
@@ -870,8 +874,37 @@ async function processImagesJob(
   // Helper function to delay
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
+  // Check global pending predictions count to avoid overwhelming Replicate
+  const checkGlobalQueueCapacity = async (): Promise<boolean> => {
+    const { count } = await adminClient
+      .from('pending_predictions')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    
+    return (count || 0) < MAX_CONCURRENT_PREDICTIONS;
+  };
+  
+  // Wait for queue capacity with timeout
+  const waitForQueueCapacity = async (maxWaitMs: number = 60000): Promise<boolean> => {
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWaitMs) {
+      if (await checkGlobalQueueCapacity()) {
+        return true;
+      }
+      console.log(`Queue at capacity, waiting 5s... (${Math.round((Date.now() - startTime) / 1000)}s elapsed)`);
+      await delay(5000);
+    }
+    return false;
+  };
+  
   // Process in batches
   for (let batchStart = 0; batchStart < promptsToProcess.length; batchStart += BATCH_SIZE) {
+    // Check global queue capacity before starting a new batch
+    const hasCapacity = await waitForQueueCapacity(120000); // Wait up to 2 minutes
+    if (!hasCapacity) {
+      console.log(`Queue still at capacity after 2 minutes, proceeding anyway with longer delays...`);
+    }
+    
     const batch = promptsToProcess.slice(batchStart, batchStart + BATCH_SIZE);
     console.log(`Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(promptsToProcess.length / BATCH_SIZE)} (${batch.length} images)`);
     
@@ -892,105 +925,82 @@ async function processImagesJob(
           requestBody.image_urls = styleReferenceUrls;
         }
 
-        // Start async generation with webhook
-        const startResponse = await fetch(`${supabaseUrl}/functions/v1/generate-image-seedream`, {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
+        // Retry logic with exponential backoff
+        let lastError = '';
+        let success = false;
+        
+        for (let retry = 0; retry <= MAX_RETRIES; retry++) {
+          // Start async generation with webhook
+          const startResponse = await fetch(`${supabaseUrl}/functions/v1/generate-image-seedream`, {
+            method: 'POST',
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
 
-        if (!startResponse.ok) {
-          const errorText = await startResponse.text();
-          console.error(`Failed to start generation for scene ${index + 1}: ${startResponse.status} - ${errorText}`);
-          
-          // If queue is full, wait longer and retry once
-          if (errorText.includes('Queue is full')) {
-            console.log(`Queue full for scene ${index + 1}, waiting 10s and retrying...`);
-            await delay(10000);
-            
-            const retryResponse = await fetch(`${supabaseUrl}/functions/v1/generate-image-seedream`, {
-              method: 'POST',
-              headers: {
-                'Authorization': authHeader,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(requestBody),
-            });
-            
-            if (retryResponse.ok) {
-              const retryData = await retryResponse.json();
-              const predictionId = retryData.predictionId;
-              
-              if (predictionId) {
-                await adminClient
-                  .from('pending_predictions')
-                  .insert({
-                    job_id: jobId,
-                    prediction_id: predictionId,
-                    prediction_type: 'scene_image',
-                    scene_index: index,
-                    project_id: projectId,
-                    user_id: userId,
-                    metadata: { prompt: prompt.prompt },
-                    status: 'pending'
-                  });
-                startedCount++;
-                console.log(`Scene ${index + 1} generation started on retry: ${predictionId}`);
-              }
-            } else {
-              failedCount++;
-              // Save as failed prediction so it can be retried later
-              await adminClient
+          if (startResponse.ok) {
+            const startData = await startResponse.json();
+            const predictionId = startData.predictionId;
+
+            if (predictionId) {
+              // Save to pending_predictions table
+              const { error: insertError } = await adminClient
                 .from('pending_predictions')
                 .insert({
                   job_id: jobId,
-                  prediction_id: `failed_${index}_${Date.now()}`,
+                  prediction_id: predictionId,
                   prediction_type: 'scene_image',
                   scene_index: index,
                   project_id: projectId,
                   user_id: userId,
-                  metadata: { prompt: prompt.prompt, error: 'Queue full after retry' },
-                  status: 'failed',
-                  error_message: 'Queue is full - will be retried automatically'
+                  metadata: { prompt: prompt.prompt },
+                  status: 'pending'
                 });
+
+              if (!insertError) {
+                startedCount++;
+                console.log(`Scene ${index + 1} generation started: ${predictionId}${retry > 0 ? ` (after ${retry} retries)` : ''}`);
+                success = true;
+                break;
+              }
             }
-          } else {
-            failedCount++;
           }
-          continue;
+          
+          const errorText = await startResponse.text().catch(() => 'Unknown error');
+          lastError = errorText;
+          
+          // Check if it's a queue full error - apply exponential backoff
+          if (errorText.includes('Queue is full') && retry < MAX_RETRIES) {
+            const retryDelay = BASE_RETRY_DELAY_MS * Math.pow(2, retry); // 15s, 30s, 60s
+            console.log(`Queue full for scene ${index + 1}, retry ${retry + 1}/${MAX_RETRIES} in ${retryDelay / 1000}s...`);
+            await delay(retryDelay);
+          } else if (retry < MAX_RETRIES) {
+            // For other errors, shorter delay
+            console.log(`Error for scene ${index + 1}: ${errorText}, retry ${retry + 1}/${MAX_RETRIES} in 5s...`);
+            await delay(5000);
+          }
         }
-
-        const startData = await startResponse.json();
-        const predictionId = startData.predictionId;
-
-        if (!predictionId) {
-          console.error(`No prediction ID for scene ${index + 1}`);
+        
+        if (!success) {
+          console.error(`Failed to start generation for scene ${index + 1} after ${MAX_RETRIES} retries: ${lastError}`);
           failedCount++;
-          continue;
-        }
-
-        // Save to pending_predictions table
-        const { error: insertError } = await adminClient
-          .from('pending_predictions')
-          .insert({
-            job_id: jobId,
-            prediction_id: predictionId,
-            prediction_type: 'scene_image',
-            scene_index: index,
-            project_id: projectId,
-            user_id: userId,
-            metadata: { prompt: prompt.prompt },
-            status: 'pending'
-          });
-
-        if (insertError) {
-          console.error(`Error saving prediction ${predictionId}:`, insertError);
-        } else {
-          startedCount++;
-          console.log(`Scene ${index + 1} generation started: ${predictionId}`);
+          
+          // Save as failed prediction so it can be retried later
+          await adminClient
+            .from('pending_predictions')
+            .insert({
+              job_id: jobId,
+              prediction_id: `failed_${index}_${Date.now()}`,
+              prediction_type: 'scene_image',
+              scene_index: index,
+              project_id: projectId,
+              user_id: userId,
+              metadata: { prompt: prompt.prompt, error: lastError },
+              status: 'failed',
+              error_message: `Queue full after ${MAX_RETRIES} retries - will be retried automatically`
+            });
         }
 
         // Small delay between individual requests within a batch
