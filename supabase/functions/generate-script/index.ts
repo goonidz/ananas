@@ -276,7 +276,7 @@ RÈGLE CRITIQUE SUR LA LONGUEUR:
         input: {
           prompt: userPrompt,
           system_prompt: systemPrompt,
-          max_tokens: 65536,
+          max_tokens: 64000,
           temperature: 0.7,
         },
         webhook: webhookUrl,
@@ -321,7 +321,7 @@ RÈGLE CRITIQUE SUR LA LONGUEUR:
         input: {
           prompt: userPrompt,
           system_prompt: systemPrompt,
-          max_tokens: 65536,
+          max_tokens: 64000,
           temperature: 0.7,
         }
       }
