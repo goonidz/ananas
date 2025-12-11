@@ -78,9 +78,9 @@ BAD EXAMPLES (too specific/too long):
 Respond ONLY with a JSON array of 10 strings, no explanation.
 Example: ["tag1", "tag2", "tag3", ...]`;
 
-    const userContent = `TITRE DE LA VIDÉO: ${videoTitle || "Sans titre"}
+    const userContent = `VIDEO TITLE: ${videoTitle || "Untitled"}
 
-SCRIPT DE LA VIDÉO:
+VIDEO SCRIPT (detect language and generate tags in this language):
 ${videoScript.substring(0, 4000)}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
