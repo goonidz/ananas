@@ -331,17 +331,47 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
 
   console.log(`All predictions for job ${jobId} are complete`);
 
-  // Get job info
+  // Get job info - check if already completed to prevent race conditions
   const { data: job } = await adminClient
     .from('generation_jobs')
-    .select('job_type, project_id, user_id, metadata')
+    .select('job_type, project_id, user_id, metadata, status')
     .eq('id', jobId)
     .single();
 
   if (!job) return;
 
+  // IMPORTANT: Prevent duplicate processing if job is already completed
+  if (job.status === 'completed') {
+    console.log(`Job ${jobId} already marked as completed, skipping duplicate processing`);
+    return;
+  }
+
+  // Mark job as completed FIRST (atomically) to prevent race conditions
+  const { error: updateError, count } = await adminClient
+    .from('generation_jobs')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString()
+    })
+    .eq('id', jobId)
+    .eq('status', 'processing'); // Only update if still processing
+
+  // If no rows were updated, another webhook already completed this job
+  if (updateError || count === 0) {
+    console.log(`Job ${jobId} was already completed by another webhook, skipping`);
+    return;
+  }
+
   const successfulPredictions = predictions.filter((p: any) => p.status === 'completed' && p.result_url);
   const failedCount = predictions.filter((p: any) => p.status === 'failed').length;
+
+  // Update error message if there were failures
+  if (failedCount > 0) {
+    await adminClient
+      .from('generation_jobs')
+      .update({ error_message: `${failedCount} générations échouées` })
+      .eq('id', jobId);
+  }
 
   // For thumbnails, save to generated_thumbnails table
   if (job.job_type === 'thumbnails' && successfulPredictions.length > 0) {
@@ -370,16 +400,6 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
       }
     }
   }
-
-  // Mark job as completed
-  await adminClient
-    .from('generation_jobs')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      error_message: failedCount > 0 ? `${failedCount} générations échouées` : null
-    })
-    .eq('id', jobId);
 
   console.log(`Job ${jobId} marked as completed. Success: ${successfulPredictions.length}, Failed: ${failedCount}`);
 
