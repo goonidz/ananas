@@ -5,10 +5,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Plus, Upload, Download } from "lucide-react";
+import { Loader2, Plus, Upload, Download, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { parseStyleReferenceUrls } from "@/lib/styleReferenceHelpers";
+
+interface LoraPreset {
+  id: string;
+  name: string;
+  lora_url: string;
+  lora_steps: number;
+}
 
 interface Preset {
   id: string;
@@ -67,12 +74,33 @@ export const ProjectConfigurationModal = ({
   // Thumbnail preset for semi-auto mode
   const [thumbnailPresets, setThumbnailPresets] = useState<any[]>([]);
   const [selectedThumbnailPresetId, setSelectedThumbnailPresetId] = useState<string>("");
+  
+  // LoRA presets
+  const [loraPresets, setLoraPresets] = useState<LoraPreset[]>([]);
+  const [selectedLoraPresetId, setSelectedLoraPresetId] = useState<string>("");
+  const [newLoraPresetName, setNewLoraPresetName] = useState("");
+  const [isSavingLoraPreset, setIsSavingLoraPreset] = useState(false);
 
   // Load presets on mount
   useEffect(() => {
     loadPresets();
+    loadLoraPresets();
     loadThumbnailPresets();
   }, []);
+
+  const loadLoraPresets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("lora_presets")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setLoraPresets(data || []);
+    } catch (error) {
+      console.error("Error loading LoRA presets:", error);
+    }
+  };
 
   const loadThumbnailPresets = async () => {
     try {
@@ -143,6 +171,73 @@ export const ProjectConfigurationModal = ({
       }
       setSelectedPresetId(presetId);
       toast.success(`Preset "${preset.name}" chargé !`);
+    }
+  };
+
+  const handleLoadLoraPreset = (presetId: string) => {
+    const preset = loraPresets.find(p => p.id === presetId);
+    if (preset) {
+      setLoraUrl(preset.lora_url);
+      setLoraSteps(preset.lora_steps);
+      setSelectedLoraPresetId(presetId);
+      toast.success(`Preset LoRA "${preset.name}" chargé !`);
+    }
+  };
+
+  const handleSaveLoraPreset = async () => {
+    if (!newLoraPresetName.trim()) {
+      toast.error("Veuillez entrer un nom pour le preset");
+      return;
+    }
+    if (!loraUrl.trim()) {
+      toast.error("Veuillez entrer une URL LoRA");
+      return;
+    }
+
+    setIsSavingLoraPreset(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+
+      const { error } = await supabase
+        .from("lora_presets")
+        .insert({
+          user_id: user.id,
+          name: newLoraPresetName.trim(),
+          lora_url: loraUrl.trim(),
+          lora_steps: loraSteps,
+        });
+
+      if (error) throw error;
+
+      toast.success("Preset LoRA sauvegardé !");
+      setNewLoraPresetName("");
+      loadLoraPresets();
+    } catch (error: any) {
+      console.error("Error saving LoRA preset:", error);
+      toast.error("Erreur lors de la sauvegarde");
+    } finally {
+      setIsSavingLoraPreset(false);
+    }
+  };
+
+  const handleDeleteLoraPreset = async (presetId: string) => {
+    try {
+      const { error } = await supabase
+        .from("lora_presets")
+        .delete()
+        .eq("id", presetId);
+
+      if (error) throw error;
+
+      toast.success("Preset LoRA supprimé !");
+      if (selectedLoraPresetId === presetId) {
+        setSelectedLoraPresetId("");
+      }
+      loadLoraPresets();
+    } catch (error: any) {
+      console.error("Error deleting LoRA preset:", error);
+      toast.error("Erreur lors de la suppression");
     }
   };
 
@@ -483,7 +578,43 @@ export const ProjectConfigurationModal = ({
           {/* LoRA configuration for z-image-turbo-lora */}
           {imageModel === "z-image-turbo-lora" && (
             <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-              <h4 className="font-medium text-sm">Configuration LoRA</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm">Configuration LoRA</h4>
+              </div>
+              
+              {/* Load LoRA preset */}
+              <div className="space-y-2">
+                <Label className="text-xs">Charger un preset LoRA</Label>
+                <div className="flex gap-2">
+                  <Select value={selectedLoraPresetId} onValueChange={handleLoadLoraPreset}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Sélectionner un preset..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loraPresets.length === 0 ? (
+                        <SelectItem value="none" disabled>Aucun preset</SelectItem>
+                      ) : (
+                        loraPresets.map((preset) => (
+                          <SelectItem key={preset.id} value={preset.id}>
+                            {preset.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {selectedLoraPresetId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteLoraPreset(selectedLoraPresetId)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>URL du LoRA (HuggingFace .safetensors)</Label>
                 <Input
@@ -507,6 +638,34 @@ export const ProjectConfigurationModal = ({
                 <p className="text-xs text-muted-foreground">
                   Plus de steps = meilleure qualité mais plus lent (recommandé: 10)
                 </p>
+              </div>
+              
+              {/* Save as new LoRA preset */}
+              <div className="pt-3 border-t space-y-2">
+                <Label className="text-xs">Sauvegarder comme preset</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newLoraPresetName}
+                    onChange={(e) => setNewLoraPresetName(e.target.value)}
+                    placeholder="Nom du preset..."
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveLoraPreset}
+                    disabled={isSavingLoraPreset || !loraUrl.trim()}
+                  >
+                    {isSavingLoraPreset ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-1" />
+                        Sauver
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
