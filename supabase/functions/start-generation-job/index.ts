@@ -426,8 +426,8 @@ async function processJob(
     
     // Check if this is a CPU timeout and there's still work to do
     const hasRemainingWork = progress < total;
-    const shouldContinue = isCpuTimeout && hasRemainingWork && (currentJobType === 'images' || currentJobType === 'prompts');
-    
+    const shouldContinue = isCpuTimeout && hasRemainingWork && currentJobType === 'images';
+
     if (shouldContinue) {
       console.log(`CPU timeout detected for job ${jobId}. Progress: ${progress}/${total}. Creating continuation job...`);
       
