@@ -231,8 +231,7 @@ Deno.serve(async (req) => {
 
         if (modelVersionHash) {
           // When a specific version hash is provided (e.g. "prunaai/z-image-turbo-lora:dfa1...")
-          // use the hash in the `version` field and the repo name in `model`.
-          createOptions.model = baseModel;
+          // ONLY use the version field - do NOT pass model alongside version
           createOptions.version = modelVersionHash;
         } else {
           // Fallback: let Replicate use the latest version for this model
