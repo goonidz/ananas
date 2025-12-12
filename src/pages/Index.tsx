@@ -61,6 +61,12 @@ import { DescriptionGenerator } from "@/components/DescriptionGenerator";
 import { TagGenerator } from "@/components/TagGenerator";
 import { YouTubeTester } from "@/components/YouTubeTester";
 import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGenerationJobs, GenerationJob } from "@/hooks/useGenerationJobs";
 import { ActiveJobsBanner } from "@/components/JobProgressIndicator";
@@ -2114,35 +2120,66 @@ const Index = () => {
                               Annuler images
                             </Button>
                           )}
-                          {/* TEMPORARY: Delete all images button */}
-                          <Button
-                            onClick={async () => {
-                              if (!currentProjectId || !user) return;
-                              try {
-                                // Use null instead of undefined - undefined is omitted in JSON serialization
-                                // which can leave old imageUrl values in the database
-                                const clearedPrompts = generatedPrompts.map(p => {
-                                  const { imageUrl, ...rest } = p;
-                                  return { ...rest, imageUrl: null };
-                                });
-                                const { error } = await supabase
-                                  .from('projects')
-                                  .update({ prompts: clearedPrompts as any })
-                                  .eq('id', currentProjectId);
-                                if (error) throw error;
-                                setGeneratedPrompts(clearedPrompts.map(p => ({ ...p, imageUrl: undefined })));
-                                toast.success("Toutes les images ont été supprimées");
-                              } catch (error) {
-                                console.error('Error deleting images:', error);
-                                toast.error("Erreur lors de la suppression des images");
-                              }
-                            }}
-                            variant="destructive"
-                            size="sm"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Suppr. images
-                          </Button>
+                          {/* Delete dropdown for images/prompts */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="destructive" size="sm">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Supprimer
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (!currentProjectId || !user) return;
+                                  try {
+                                    const clearedPrompts = generatedPrompts.map(p => {
+                                      const { imageUrl, ...rest } = p;
+                                      return { ...rest, imageUrl: null };
+                                    });
+                                    const { error } = await supabase
+                                      .from('projects')
+                                      .update({ prompts: clearedPrompts as any })
+                                      .eq('id', currentProjectId);
+                                    if (error) throw error;
+                                    setGeneratedPrompts(clearedPrompts.map(p => ({ ...p, imageUrl: undefined })));
+                                    toast.success("Toutes les images ont été supprimées");
+                                  } catch (error) {
+                                    console.error('Error deleting images:', error);
+                                    toast.error("Erreur lors de la suppression des images");
+                                  }
+                                }}
+                              >
+                                <ImageIcon className="mr-2 h-4 w-4" />
+                                Supprimer les images
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  if (!currentProjectId || !user) return;
+                                  try {
+                                    const clearedPrompts = generatedPrompts.map(p => ({
+                                      ...p,
+                                      prompt: null,
+                                      imageUrl: null
+                                    }));
+                                    const { error } = await supabase
+                                      .from('projects')
+                                      .update({ prompts: clearedPrompts as any })
+                                      .eq('id', currentProjectId);
+                                    if (error) throw error;
+                                    setGeneratedPrompts(clearedPrompts.map(p => ({ ...p, prompt: undefined, imageUrl: undefined })));
+                                    toast.success("Tous les prompts et images ont été supprimés");
+                                  } catch (error) {
+                                    console.error('Error deleting prompts:', error);
+                                    toast.error("Erreur lors de la suppression des prompts");
+                                  }
+                                }}
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                Supprimer les prompts
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                       
