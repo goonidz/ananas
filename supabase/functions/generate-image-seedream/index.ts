@@ -227,18 +227,52 @@ Deno.serve(async (req) => {
         // Replicate's predictions.create prefers explicit version instead of model path
         const [baseModel, modelVersionHash] = modelName.split(":");
 
+        // For models without version hash, we need to use a different approach
+        // The /v1/models/{owner}/{name}/predictions endpoint doesn't work for all models
+        // Instead, we need to get the latest version first, then create prediction with that version
+        if (!modelVersionHash) {
+          console.log("No version hash provided, fetching latest version for model:", modelName);
+          
+          // Get the latest version of the model
+          const modelInfo = await replicate.models.get(baseModel.split('/')[0], baseModel.split('/')[1]);
+          const latestVersion = modelInfo.latest_version?.id;
+          
+          if (!latestVersion) {
+            throw new Error(`Could not find latest version for model: ${modelName}`);
+          }
+          
+          console.log("Found latest version:", latestVersion);
+          
+          const createOptions: any = {
+            version: latestVersion,
+            input,
+          };
+          
+          // Add webhook if provided
+          if (webhookUrl) {
+            createOptions.webhook = webhookUrl;
+            createOptions.webhook_events_filter = ["completed"];
+            console.log("Webhook configured:", webhookUrl);
+          }
+          
+          const prediction = await replicate.predictions.create(createOptions);
+          
+          console.log("Prediction created:", prediction.id, "status:", prediction.status);
+          
+          return new Response(JSON.stringify({ 
+            predictionId: prediction.id,
+            status: prediction.status
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          });
+        }
+
+        // With version hash, use it directly
         const createOptions: any = {
+          version: modelVersionHash,
           input,
         };
-
-        if (modelVersionHash) {
-          // When a specific version hash is provided (e.g. "prunaai/z-image-turbo-lora:dfa1...")
-          // ONLY use the version field - do NOT pass model alongside version
-          createOptions.version = modelVersionHash;
-        } else {
-          // Fallback: let Replicate use the latest version for this model
-          createOptions.model = modelName;
-        }
         
         // Add webhook if provided
         if (webhookUrl) {
