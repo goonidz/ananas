@@ -58,6 +58,8 @@ const Projects = () => {
   const [imageHeight, setImageHeight] = useState(1080);
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [imageModel, setImageModel] = useState("seedream-4.5");
+  const [loraUrl, setLoraUrl] = useState("");
+  const [loraSteps, setLoraSteps] = useState(10);
   const [promptSystemMessage, setPromptSystemMessage] = useState("");
   const [styleReferenceFiles, setStyleReferenceFiles] = useState<File[]>([]);
   const [styleReferenceUrls, setStyleReferenceUrls] = useState<string[]>([]);
@@ -462,6 +464,8 @@ const Projects = () => {
           image_height: imageHeight,
           aspect_ratio: aspectRatio,
           image_model: imageModel,
+          lora_url: loraUrl || null,
+          lora_steps: loraSteps,
           prompt_system_message: promptSystemMessage || null,
           style_reference_url: serializeStyleReferenceUrls(styleReferenceUrls),
           scenes: generatedScenes as any,
@@ -797,6 +801,8 @@ const Projects = () => {
                           styleReferenceUrls,
                           imageModel,
                           promptSystemMessage,
+                          loraUrl,
+                          loraSteps,
                         }}
                         onLoadPreset={(preset) => {
                           setSceneDuration0to1(preset.scene_duration_0to1);
@@ -807,6 +813,8 @@ const Projects = () => {
                           setImageHeight(preset.image_height);
                           setAspectRatio(preset.aspect_ratio);
                           setImageModel(preset.image_model);
+                          setLoraUrl(preset.lora_url || "");
+                          setLoraSteps(preset.lora_steps || 10);
                           setStyleReferenceUrls(parseStyleReferenceUrls(preset.style_reference_url));
                           setPromptSystemMessage(preset.prompt_system_message || "");
                           setActivePresetName(preset.name);
@@ -1011,6 +1019,7 @@ const Projects = () => {
                           <SelectItem value="seedream-4.0">SeedDream 4.0</SelectItem>
                           <SelectItem value="seedream-4.5">SeedDream 4.5</SelectItem>
                           <SelectItem value="z-image-turbo">Z-Image Turbo (rapide)</SelectItem>
+                          <SelectItem value="z-image-turbo-lora">Z-Image Turbo LoRA</SelectItem>
                         </SelectContent>
                       </Select>
                       {imageModel === "z-image-turbo" && styleReferenceUrls.length > 0 && (
@@ -1019,6 +1028,37 @@ const Projects = () => {
                         </p>
                       )}
                     </div>
+                    
+                    {/* LoRA configuration for z-image-turbo-lora */}
+                    {imageModel === "z-image-turbo-lora" && (
+                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                        <h4 className="font-medium text-sm">Configuration LoRA</h4>
+                        <div className="space-y-2">
+                          <Label>URL du LoRA (HuggingFace .safetensors)</Label>
+                          <Input
+                            value={loraUrl}
+                            onChange={(e) => setLoraUrl(e.target.value)}
+                            placeholder="https://huggingface.co/.../resolve/main/model.safetensors"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            URL publique vers votre fichier .safetensors sur HuggingFace
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Nombre de steps</Label>
+                          <Input
+                            type="number"
+                            value={loraSteps}
+                            onChange={(e) => setLoraSteps(parseInt(e.target.value) || 10)}
+                            min={4}
+                            max={50}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Plus de steps = meilleure qualité mais plus lent (recommandé: 10)
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <Label>Aspect Ratio</Label>
                       <Select 

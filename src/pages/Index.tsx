@@ -109,6 +109,8 @@ const Index = () => {
   const [imageHeight, setImageHeight] = useState<number>(1080);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [imageModel, setImageModel] = useState<string>("seedream-4.5");
+  const [loraUrl, setLoraUrl] = useState<string>("");
+  const [loraSteps, setLoraSteps] = useState<number>(10);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [generatingImageIndex, setGeneratingImageIndex] = useState<number | null>(null);
   const [generatingPromptIndex, setGeneratingPromptIndex] = useState<number | null>(null);
@@ -535,6 +537,8 @@ const Index = () => {
       if (projectData.image_height) setImageHeight(projectData.image_height);
       if (projectData.aspect_ratio) setAspectRatio(projectData.aspect_ratio);
       if (projectData.image_model) setImageModel(projectData.image_model);
+      if (projectData.lora_url) setLoraUrl(projectData.lora_url);
+      if (projectData.lora_steps) setLoraSteps(projectData.lora_steps);
       if (projectData.prompt_system_message) setPromptSystemMessage(projectData.prompt_system_message);
       
       const parsedUrls = parseStyleReferenceUrls(data.style_reference_url);
@@ -580,6 +584,8 @@ const Index = () => {
           image_height: imageHeight,
           aspect_ratio: aspectRatio,
           image_model: imageModel,
+          lora_url: loraUrl || null,
+          lora_steps: loraSteps,
           style_reference_url: serializeStyleReferenceUrls(styleReferenceUrls),
           audio_url: audioUrl || null,
           prompt_system_message: promptSystemMessage || null,
@@ -1422,6 +1428,8 @@ const Index = () => {
     style_reference_url: string | null;
     image_model: string;
     prompt_system_message: string | null;
+    lora_url?: string | null;
+    lora_steps?: number;
   }) => {
     setSceneDuration0to1(preset.scene_duration_0to1);
     setSceneDuration1to3(preset.scene_duration_1to3);
@@ -1431,6 +1439,8 @@ const Index = () => {
     setImageHeight(preset.image_height);
     setAspectRatio(preset.aspect_ratio);
     setImageModel(preset.image_model);
+    setLoraUrl(preset.lora_url || "");
+    setLoraSteps(preset.lora_steps || 10);
     setActivePresetName(preset.name);
     setPromptSystemMessage(preset.prompt_system_message || "");
     const parsedUrls = parseStyleReferenceUrls(preset.style_reference_url);
@@ -1779,6 +1789,8 @@ const Index = () => {
                     styleReferenceUrls,
                     imageModel,
                     promptSystemMessage,
+                    loraUrl,
+                    loraSteps,
                   }}
                   onLoadPreset={handleLoadPreset}
                 />
@@ -2862,15 +2874,49 @@ Return ONLY the prompt text, no JSON, no title, just the optimized prompt in ENG
                       <SelectItem value="seedream-4.5">SeedDream 4.5 (Recommandé)</SelectItem>
                       <SelectItem value="seedream-4">SeedDream 4.0</SelectItem>
                       <SelectItem value="z-image-turbo">Z-Image Turbo (Rapide, max 720p)</SelectItem>
+                      <SelectItem value="z-image-turbo-lora">Z-Image Turbo LoRA</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
                     {imageModel === 'z-image-turbo' 
                       ? "Z-Image Turbo est très rapide mais ne supporte pas les images de référence" 
+                      : imageModel === 'z-image-turbo-lora'
+                      ? "Z-Image Turbo avec LoRA personnalisé"
                       : "SeedDream 4.5 offre une meilleure qualité mais nécessite des images plus grandes"
                     }
                   </p>
                 </div>
+
+                {/* LoRA configuration for z-image-turbo-lora */}
+                {imageModel === "z-image-turbo-lora" && (
+                  <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                    <h4 className="font-medium text-sm">Configuration LoRA</h4>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium block">URL du LoRA (HuggingFace .safetensors)</label>
+                      <Input
+                        value={loraUrl}
+                        onChange={(e) => setLoraUrl(e.target.value)}
+                        placeholder="https://huggingface.co/.../resolve/main/model.safetensors"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        URL publique vers votre fichier .safetensors sur HuggingFace
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium block">Nombre de steps</label>
+                      <Input
+                        type="number"
+                        value={loraSteps}
+                        onChange={(e) => setLoraSteps(parseInt(e.target.value) || 10)}
+                        min={4}
+                        max={50}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Plus de steps = meilleure qualité mais plus lent (recommandé: 10)
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">Format</label>
@@ -3320,6 +3366,8 @@ Return ONLY the prompt text, no JSON, no title, just the optimized prompt in ENG
                   if (data.image_height) setImageHeight(data.image_height);
                   if (data.aspect_ratio) setAspectRatio(data.aspect_ratio);
                   if (data.image_model) setImageModel(data.image_model);
+                  if ((data as any).lora_url) setLoraUrl((data as any).lora_url);
+                  if ((data as any).lora_steps) setLoraSteps((data as any).lora_steps);
                   if (data.style_reference_url) {
                     setStyleReferenceUrls(parseStyleReferenceUrls(data.style_reference_url));
                   }
