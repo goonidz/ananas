@@ -158,6 +158,12 @@ export function useGenerationJobs({ projectId, onJobComplete, onJobFailed, autoR
             const updatedJob = payload.new as GenerationJob;
             
             setActiveJobs(prev => {
+              // If we no longer track this job (already removed), ignore the update
+              const existingJob = prev.find(j => j.id === updatedJob.id);
+              if (!existingJob) {
+                return prev;
+              }
+              
               // If job completed or failed, trigger callbacks and remove from active
               if (updatedJob.status === 'completed') {
                 // Use ref to get latest callback
