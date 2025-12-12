@@ -1934,7 +1934,23 @@ const Index = () => {
                       </Button>
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>{imageWidth}x{imageHeight} ({aspectRatio})</div>
+                      <div>
+                        {(() => {
+                          // Calculate effective dimensions for Z-Image Turbo models
+                          const isZImageTurbo = imageModel === 'z-image-turbo' || imageModel === 'z-image-turbo-lora';
+                          if (isZImageTurbo && (imageWidth > 1440 || imageHeight > 1440)) {
+                            const MAX_DIM = 1440;
+                            const scale = Math.min(MAX_DIM / imageWidth, MAX_DIM / imageHeight);
+                            let effectiveWidth = Math.floor(imageWidth * scale);
+                            let effectiveHeight = Math.floor(imageHeight * scale);
+                            // Round to multiples of 16
+                            effectiveWidth = Math.ceil(effectiveWidth / 16) * 16;
+                            effectiveHeight = Math.ceil(effectiveHeight / 16) * 16;
+                            return `${effectiveWidth}x${effectiveHeight} (${aspectRatio})`;
+                          }
+                          return `${imageWidth}x${imageHeight} (${aspectRatio})`;
+                        })()}
+                      </div>
                       <div>{styleReferenceUrls.length > 0 ? `${styleReferenceUrls.length} image(s) de référence` : "Pas de référence"}</div>
                     </div>
                   </Card>
