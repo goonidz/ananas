@@ -37,6 +37,8 @@ interface Preset {
   style_reference_url: string | null;
   image_model: string;
   prompt_system_message: string | null;
+  lora_url: string | null;
+  lora_steps: number;
 }
 
 const DEFAULT_PROMPT_SYSTEM_MESSAGE = `You are an expert at generating prompts for AI image creation (like Midjourney, Stable Diffusion, DALL-E).
@@ -83,6 +85,8 @@ interface PresetManagerProps {
     styleReferenceUrls: string[];
     imageModel: string;
     promptSystemMessage: string;
+    loraUrl?: string;
+    loraSteps?: number;
   };
   onLoadPreset: (preset: Preset) => void;
 }
@@ -142,6 +146,8 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
         style_reference_url: preset.style_reference_url,
         image_model: (preset as any).image_model || 'seedream-4.5',
         prompt_system_message: (preset as any).prompt_system_message || null,
+        lora_url: (preset as any).lora_url || null,
+        lora_steps: (preset as any).lora_steps || 10,
       }));
       
       setPresets(mappedPresets);
@@ -176,6 +182,8 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
           image_height: currentConfig.imageHeight,
           aspect_ratio: currentConfig.aspectRatio,
           image_model: currentConfig.imageModel,
+          lora_url: currentConfig.loraUrl || null,
+          lora_steps: currentConfig.loraSteps || 10,
           style_reference_url: JSON.stringify(currentConfig.styleReferenceUrls),
           prompt_system_message: currentConfig.promptSystemMessage || DEFAULT_PROMPT_SYSTEM_MESSAGE,
         },
@@ -313,6 +321,8 @@ export const PresetManager = ({ currentConfig, onLoadPreset }: PresetManagerProp
           image_height: sourcePreset.image_height,
           aspect_ratio: sourcePreset.aspect_ratio,
           image_model: sourcePreset.image_model,
+          lora_url: sourcePreset.lora_url,
+          lora_steps: sourcePreset.lora_steps,
           style_reference_url: sourcePreset.style_reference_url,
           prompt_system_message: sourcePreset.prompt_system_message,
         },
