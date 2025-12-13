@@ -380,15 +380,23 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
   // Handle chunk continuation or semi-auto mode chaining for images
   const metadata = job.metadata || {};
   if (job.job_type === 'images') {
-    // Check if there are more chunks to process
-    const remainingAfterChunk = metadata.remainingAfterChunk || 0;
-    const chunkStart = metadata.chunkStart || 0;
-    const chunkSize = metadata.chunkSize || 50;
+    // Check if there are more images to process by re-checking the project
+    // This is more reliable than relying on pre-calculated remainingAfterChunk
+    // because images are added between chunk starts
+    const { data: project } = await adminClient
+      .from('projects')
+      .select('prompts')
+      .eq('id', job.project_id)
+      .single();
     
-    if (remainingAfterChunk > 0) {
-      // More chunks to process - create next chunk job
-      const nextChunkStart = chunkStart + chunkSize;
-      console.log(`Job ${jobId}: Chunk complete. Creating next chunk starting at index ${nextChunkStart} (${remainingAfterChunk} remaining)`);
+    const prompts = (project?.prompts as any[]) || [];
+    const missingCount = prompts.filter((p: any) => p?.prompt && !p?.imageUrl).length;
+    
+    console.log(`Job ${jobId} complete. Checking project - ${missingCount} images still missing`);
+    
+    if (missingCount > 0) {
+      // More images need to be generated - create next chunk job
+      console.log(`Job ${jobId}: Creating next chunk for ${missingCount} remaining images`);
       
       // Check for existing chunk job to prevent duplicates
       const { data: existingChunkJob } = await adminClient
@@ -413,10 +421,10 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
           job_type: 'images',
           status: 'pending',
           progress: 0,
-          total: Math.min(remainingAfterChunk, 50),
+          total: Math.min(missingCount, 50),
           metadata: {
             ...metadata,
-            chunkStart: nextChunkStart,
+            skipExisting: true, // Always skip existing images
             isChunkContinuation: true
           }
         })
@@ -425,9 +433,9 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
       
       if (chunkError) {
         console.error("Error creating next chunk job:", chunkError);
-        // Fall through to check for missing images
+        // Fall through to check for semi-auto chaining
       } else {
-        console.log(`Created next chunk job ${nextChunkJob.id} for images ${nextChunkStart + 1}-${nextChunkStart + Math.min(remainingAfterChunk, 50)}`);
+        console.log(`Created next chunk job ${nextChunkJob.id} for ${Math.min(missingCount, 50)} images`);
         
         // Start next chunk job in background
         EdgeRuntime.waitUntil((async () => {
@@ -450,7 +458,7 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
                 jobType: 'images',
                 metadata: {
                   ...metadata,
-                  chunkStart: nextChunkStart,
+                  skipExisting: true,
                   isChunkContinuation: true
                 }
               })
@@ -466,111 +474,14 @@ async function checkJobCompletion(adminClient: any, jobId: string) {
           }
         })());
         
-        return; // Don't proceed to retry logic or chaining yet
+        return; // Don't proceed to semi-auto chaining yet - more chunks needed
       }
     }
     
-    // No more chunks - check for missing images if in semi-auto mode
+    // All images are done (missingCount === 0) - proceed to semi-auto chaining if enabled
     if (metadata.semiAutoMode === true) {
-      const { data: project } = await adminClient
-        .from('projects')
-        .select('prompts')
-        .eq('id', job.project_id)
-        .single();
-      
-      const prompts = (project?.prompts as any[]) || [];
-      const missingCount = prompts.filter((p: any) => p?.prompt && !p?.imageUrl).length;
-      
-      console.log(`Job ${jobId}: All chunks done. Checking project - ${missingCount} images still missing out of ${prompts.length} total`);
-      
-      if (missingCount > 0) {
-        const retryCount = metadata.retryCount || 0;
-        const maxRetries = 3;
-        
-        if (retryCount < maxRetries) {
-          const { data: existingRetryJob } = await adminClient
-            .from('generation_jobs')
-            .select('id')
-            .eq('project_id', job.project_id)
-            .eq('job_type', 'images')
-            .in('status', ['pending', 'processing'])
-            .single();
-
-          if (existingRetryJob) {
-            console.log(`Job ${jobId}: Retry job ${existingRetryJob.id} already exists, skipping`);
-            return;
-          }
-
-          console.log(`Job ${jobId}: Creating retry job for ${missingCount} missing images (attempt ${retryCount + 1}/${maxRetries})`);
-          
-          const { data: retryJob, error: retryError } = await adminClient
-            .from('generation_jobs')
-            .insert({
-              project_id: job.project_id,
-              user_id: job.user_id,
-              job_type: 'images',
-              status: 'pending',
-              progress: 0,
-              total: missingCount,
-              metadata: {
-                ...metadata,
-                chunkStart: 0, // Reset chunk for retry
-                skipExisting: true,
-                isRetry: true,
-                retryCount: retryCount + 1
-              }
-            })
-            .select()
-            .single();
-          
-          if (retryError) {
-            console.error("Error creating retry job:", retryError);
-            await chainNextJobFromWebhook(adminClient, job.project_id, job.user_id, job.job_type, metadata);
-          } else {
-            console.log(`Created retry job ${retryJob.id}`);
-            
-            EdgeRuntime.waitUntil((async () => {
-              const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-              const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-              
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              try {
-                const response = await fetch(`${supabaseUrl}/functions/v1/start-generation-job`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${serviceRoleKey}`
-                  },
-                  body: JSON.stringify({
-                    jobId: retryJob.id,
-                    projectId: job.project_id,
-                    userId: job.user_id,
-                    jobType: 'images',
-                    skipExisting: true,
-                    semiAutoMode: true,
-                    useWebhook: true
-                  })
-                });
-                
-                if (response.ok) {
-                  console.log(`Retry job ${retryJob.id} started successfully`);
-                } else {
-                  console.error(`Failed to start retry job: ${await response.text()}`);
-                }
-              } catch (error) {
-                console.error("Error starting retry job:", error);
-              }
-            })());
-          }
-        } else {
-          console.log(`Job ${jobId}: Max retries reached. ${missingCount} images still missing. Proceeding to thumbnails.`);
-          await chainNextJobFromWebhook(adminClient, job.project_id, job.user_id, job.job_type, metadata);
-        }
-      } else {
-        console.log(`Job ${jobId}: All images generated. Chaining to next step.`);
-        await chainNextJobFromWebhook(adminClient, job.project_id, job.user_id, job.job_type, metadata);
-      }
+      console.log(`Job ${jobId}: All images generated. Chaining to thumbnails.`);
+      await chainNextJobFromWebhook(adminClient, job.project_id, job.user_id, job.job_type, metadata);
     }
   } else if (metadata.semiAutoMode === true) {
     // For other job types in semi-auto, just chain

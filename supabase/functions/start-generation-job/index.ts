@@ -971,7 +971,7 @@ async function processImagesJob(
     }
   }
 
-  // Filter prompts that need images
+  // Filter prompts that need images - ALWAYS re-filter from DB to get fresh state
   const skipExisting = metadata.skipExisting !== false;
   const allPromptsToProcess = prompts
     .map((prompt: any, index: number) => ({ prompt, index }))
@@ -982,12 +982,12 @@ async function processImagesJob(
     return;
   }
 
-  // Determine which chunk to process
-  const chunkStart = metadata.chunkStart || 0;
-  const promptsToProcess = allPromptsToProcess.slice(chunkStart, chunkStart + CHUNK_SIZE);
-  const remainingAfterThisChunk = allPromptsToProcess.length - (chunkStart + promptsToProcess.length);
+  // Take the next chunk from the filtered list (always start from 0 since list is fresh)
+  // The list already only contains prompts that need images at this moment
+  const promptsToProcess = allPromptsToProcess.slice(0, CHUNK_SIZE);
+  const remainingAfterThisChunk = allPromptsToProcess.length - promptsToProcess.length;
   
-  console.log(`CHUNK MODE: Processing images ${chunkStart + 1}-${chunkStart + promptsToProcess.length} of ${allPromptsToProcess.length} (${remainingAfterThisChunk} remaining after this chunk)`);
+  console.log(`CHUNK MODE: Processing ${promptsToProcess.length} images out of ${allPromptsToProcess.length} missing (${remainingAfterThisChunk} remaining after this chunk)`);
 
   // Update job metadata with chunk info
   await adminClient
@@ -996,7 +996,6 @@ async function processImagesJob(
       total: promptsToProcess.length,
       metadata: {
         ...metadata,
-        chunkStart,
         chunkSize: promptsToProcess.length,
         totalImages: allPromptsToProcess.length,
         remainingAfterChunk: remainingAfterThisChunk
