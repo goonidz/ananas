@@ -764,11 +764,8 @@ async function processPromptsJob(
 ): Promise<{ remainingAfterChunk: number; nextChunkStart: number }> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
   
-  // CHUNK SETTINGS - first chunk smaller for quick feedback, then larger chunks
-  const FIRST_CHUNK_SIZE = 20;
-  const SUBSEQUENT_CHUNK_SIZE = 50;
-  const isFirstChunk = (metadata.chunkStart || 0) === 0;
-  const CHUNK_SIZE = isFirstChunk ? FIRST_CHUNK_SIZE : SUBSEQUENT_CHUNK_SIZE;
+  // CHUNK SETTINGS - consistent 50 prompts per chunk
+  const CHUNK_SIZE = 50;
   
   // Get project data
   const { data: project } = await adminClient
