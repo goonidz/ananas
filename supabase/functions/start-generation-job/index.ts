@@ -553,8 +553,33 @@ async function chainNextJob(
   
   let nextJobType: string | null = null;
   
+  // Get project data first to check completion status
+  const { data: project } = await adminClient
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .single();
+    
+  if (!project) {
+    console.error(`Project ${projectId} not found for chaining`);
+    return;
+  }
+  
   // Determine next job in the pipeline
   if (completedJobType === 'prompts') {
+    // CRITICAL: Check that ALL prompts are generated before chaining to images
+    const scenes = (project.scenes as any[]) || [];
+    const prompts = (project.prompts as any[]) || [];
+    const missingPrompts = scenes.filter((_, index) => {
+      const prompt = prompts[index];
+      return !prompt?.prompt || prompt.prompt === "Erreur lors de la génération";
+    });
+    
+    if (missingPrompts.length > 0) {
+      console.log(`BLOCKING CHAIN: ${missingPrompts.length} prompts still missing. Not chaining to images yet.`);
+      return;
+    }
+    
     nextJobType = 'images';
   } else if (completedJobType === 'images') {
     nextJobType = 'thumbnails';
@@ -567,18 +592,6 @@ async function chainNextJob(
   }
   
   console.log(`Semi-automatic mode: Chaining from ${completedJobType} to ${nextJobType} for project ${projectId}`);
-  
-  // Get project data for the next job
-  const { data: project } = await adminClient
-    .from('projects')
-    .select('*')
-    .eq('id', projectId)
-    .single();
-    
-  if (!project) {
-    console.error(`Project ${projectId} not found for chaining`);
-    return;
-  }
   
   // Calculate total and prepare metadata for the next job
   let total = 0;
