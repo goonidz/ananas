@@ -14,9 +14,20 @@ interface JobProgressIndicatorProps {
 export function JobProgressIndicator({ job, onCancel, className }: JobProgressIndicatorProps) {
   // For chunked jobs, calculate global progress using metadata
   const metadata = job.metadata || {};
-  const chunkStart = metadata.chunkStart || 0;
-  const totalItems = metadata.totalImages || metadata.totalPrompts || job.total;
-  const globalProgress = chunkStart + job.progress;
+  
+  // Total is the global total from metadata, or fallback to job.total
+  const totalItems = metadata.totalImages || metadata.totalPrompts || metadata.totalMissing || job.total;
+  
+  // For chunked jobs, calculate completed items from remaining
+  // remainingAfterChunk tells us how many are left after this chunk's batch was initiated
+  // So completed = total - remaining + current chunk progress
+  let globalProgress = job.progress;
+  
+  if (metadata.remainingAfterChunk !== undefined) {
+    // Items completed before this chunk = total - remaining
+    const completedBeforeChunk = totalItems - metadata.remainingAfterChunk - (metadata.chunkSize || job.total);
+    globalProgress = Math.max(0, completedBeforeChunk) + job.progress;
+  }
   
   const progressPercent = totalItems > 0 ? (globalProgress / totalItems) * 100 : 0;
   const isActive = job.status === 'pending' || job.status === 'processing';
