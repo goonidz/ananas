@@ -1622,31 +1622,31 @@ const Index = () => {
               <TabsList className="inline-flex w-auto min-w-full sm:min-w-0">
                 <TabsTrigger value="video" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
                   <Video className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Vidéo</span>
+                  <span className="hidden md:inline">Vidéo</span>
                 </TabsTrigger>
                 <TabsTrigger value="thumbnails" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
                   <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Miniatures</span>
+                  <span className="hidden md:inline">Miniatures</span>
                 </TabsTrigger>
                 <TabsTrigger value="titles" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
                   <Type className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Titres</span>
+                  <span className="hidden md:inline">Titres</span>
                 </TabsTrigger>
                 <TabsTrigger value="descriptions" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
                   <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Desc.</span>
+                  <span className="hidden md:inline">Desc.</span>
                 </TabsTrigger>
                 <TabsTrigger value="test" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
                   <MonitorPlay className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Test</span>
+                  <span className="hidden md:inline">Test</span>
                 </TabsTrigger>
                 <TabsTrigger value="tags" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
                   <Hash className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Tags</span>
+                  <span className="hidden md:inline">Tags</span>
                 </TabsTrigger>
                 <TabsTrigger value="transcript" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3">
                   <Type className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">Script</span>
+                  <span className="hidden md:inline">Script</span>
                 </TabsTrigger>
               </TabsList>
             </div>
